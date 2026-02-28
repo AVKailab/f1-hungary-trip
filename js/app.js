@@ -13,7 +13,42 @@
     initTabNavigation();
     renderActiveTab();
     startCountdownUpdates();
+    initSync();
   });
+
+  /* ---------- Cloud Sync ---------- */
+  function initSync() {
+    // Check URL for ?room= parameter (shared link)
+    var urlRoom = window.TripSync.checkUrlForRoom();
+    if (urlRoom && !window.TripSync.isConnected()) {
+      window.TripSync.joinRoom(urlRoom, function (err) {
+        if (!err) {
+          appData = window.TripStorage.loadData();
+          renderActiveTab();
+          startSyncPolling();
+          // Clean URL
+          if (window.history.replaceState) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+      });
+    } else if (window.TripSync.isConnected()) {
+      startSyncPolling();
+    }
+  }
+
+  function startSyncPolling() {
+    window.TripSync.startPolling(function () {
+      appData = window.TripStorage.loadData();
+      if (getActiveTab() === 'tab-group') {
+        renderGroup();
+      }
+      // Also refresh dashboard (person count)
+      if (getActiveTab() === 'tab-dashboard') {
+        renderDashboard();
+      }
+    });
+  }
 
   /* ---------- Tab Navigation ---------- */
   function initTabNavigation() {
@@ -557,6 +592,31 @@
 
     html += '<div class="section-title">\uD83D\uDC65 Onze Groep</div>';
 
+    // Sync bar
+    if (window.TripSync.isConnected()) {
+      html += '<div class="sync-bar sync-bar--connected">';
+      html += '<div class="sync-bar-left">';
+      html += '<span class="sync-dot"></span>';
+      html += '<span class="sync-status">Gesynchroniseerd</span>';
+      html += '</div>';
+      html += '<div class="sync-bar-actions">';
+      html += '<button class="sync-btn" onclick="window.App.shareRoom()">\uD83D\uDD17 Link delen</button>';
+      html += '<button class="sync-btn sync-btn--muted" onclick="window.App.disconnectRoom()">\u2715</button>';
+      html += '</div>';
+      html += '</div>';
+    } else {
+      html += '<div class="sync-bar">';
+      html += '<div class="sync-bar-left">';
+      html += '<span class="sync-icon">\uD83D\uDD04</span>';
+      html += '<span class="sync-status">Groep synchroniseren?</span>';
+      html += '</div>';
+      html += '<div class="sync-bar-actions">';
+      html += '<button class="sync-btn sync-btn--primary" onclick="window.App.createSyncRoom()">Groep delen</button>';
+      html += '<button class="sync-btn" onclick="window.App.showJoinRoom()">Deelnemen</button>';
+      html += '</div>';
+      html += '</div>';
+    }
+
     var tickets = window.TripData.TICKETS;
 
     if (appData.group.length === 0) {
@@ -624,6 +684,7 @@
         if (appData.group[idx]) {
           appData.group[idx][field] = input.value;
           window.TripStorage.saveData(appData);
+          window.TripSync.pushGroupChange();
         }
       }));
     });
@@ -996,6 +1057,7 @@
         notes: ''
       });
       window.TripStorage.saveData(appData);
+      window.TripSync.pushGroupChange();
       renderGroup();
 
       // Focus the new name input
@@ -1007,6 +1069,7 @@
       if (confirm('Persoon verwijderen uit de groep?')) {
         appData.group.splice(index, 1);
         window.TripStorage.saveData(appData);
+        window.TripSync.pushGroupChange();
         renderGroup();
       }
     },
@@ -1033,9 +1096,80 @@
       if (activeEmojiPicker !== null && appData.group[activeEmojiPicker]) {
         appData.group[activeEmojiPicker].emoji = emoji;
         window.TripStorage.saveData(appData);
+        window.TripSync.pushGroupChange();
         renderGroup();
       }
       closeEmojiPicker();
+    },
+
+    createSyncRoom: function () {
+      var btn = document.querySelector('.sync-btn--primary');
+      if (btn) btn.textContent = 'Bezig...';
+
+      window.TripSync.createRoom(function (err, id) {
+        if (err) {
+          alert('Kon groep niet delen: ' + err);
+          renderGroup();
+          return;
+        }
+        startSyncPolling();
+        renderGroup();
+        // Auto-share after creating
+        window.App.shareRoom();
+      });
+    },
+
+    showJoinRoom: function () {
+      var code = prompt('Plak de deellink of voer de groepscode in:');
+      if (!code) return;
+      // Extract room ID from URL or use raw code
+      var id = code;
+      if (code.indexOf('room=') !== -1) {
+        id = code.split('room=').pop().split('&')[0];
+      }
+      if (!id) return;
+
+      window.TripSync.joinRoom(id, function (err) {
+        if (err) {
+          alert('Kon niet deelnemen: ' + err);
+          return;
+        }
+        appData = window.TripStorage.loadData();
+        startSyncPolling();
+        renderGroup();
+      });
+    },
+
+    shareRoom: function () {
+      var url = window.TripSync.getShareUrl();
+      if (!url) return;
+
+      if (navigator.share) {
+        navigator.share({
+          title: 'F1 Hungary Trip - Groep',
+          text: 'Doe mee met onze F1 trip groep!',
+          url: url
+        }).catch(function () {});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(function () {
+          var status = document.querySelector('.sync-status');
+          if (status) {
+            status.textContent = 'Link gekopieerd!';
+            setTimeout(function () {
+              status.textContent = 'Gesynchroniseerd';
+            }, 2000);
+          }
+        });
+      } else {
+        prompt('Kopieer deze link en deel met je vrienden:', url);
+      }
+    },
+
+    disconnectRoom: function () {
+      if (confirm('Synchronisatie stoppen?')) {
+        window.TripSync.disconnect();
+        renderGroup();
+      }
     }
   };
 

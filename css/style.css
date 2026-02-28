@@ -1143,6 +1143,87 @@ body {
   font-weight: 700;
 }
 
+/* ===== Sync Bar ===== */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.sync-bar--connected {
+  border-color: rgba(0, 210, 106, 0.3);
+  background: linear-gradient(135deg, var(--bg-secondary), rgba(0, 210, 106, 0.05));
+}
+
+.sync-bar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.sync-icon {
+  font-size: 16px;
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  animation: syncPulse 2s infinite;
+}
+
+@keyframes syncPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.sync-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sync-bar--connected .sync-status {
+  color: var(--accent-green);
+}
+
+.sync-bar-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.sync-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-primary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+
+.sync-btn--primary {
+  background: var(--f1-red);
+  border-color: var(--f1-red);
+  color: white;
+  font-weight: 600;
+}
+
+.sync-btn--muted {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
 /* ===== Reisplanner - Route Summary Bar ===== */
 .route-summary-bar {
   display: flex;
