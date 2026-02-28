@@ -53,6 +53,27 @@ body {
   min-height: 100dvh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('../img/background.jpg') center top / cover no-repeat;
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-header,
+.app-main,
+.tab-nav {
+  position: relative;
+  z-index: 1;
 }
 
 /* ===== App Header ===== */
