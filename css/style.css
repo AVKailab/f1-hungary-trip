@@ -64,7 +64,7 @@ body::before {
   right: 0;
   bottom: 0;
   background: url('../img/background.jpg') center top / cover no-repeat;
-  opacity: 0.08;
+  opacity: 0.18;
   pointer-events: none;
   z-index: 0;
 }
