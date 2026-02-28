@@ -188,6 +188,18 @@
     }
   ];
 
+  var F1_DRIVERS = [
+    'Verstappen', 'Norris', 'Piastri', 'Leclerc', 'Hamilton',
+    'Russell', 'Antonelli', 'Sainz', 'Albon', 'Alonso',
+    'Stroll', 'Gasly', 'Doohan', 'Ocon', 'Bearman',
+    'H\u00FClkenberg', 'Bortoleto', 'Tsunoda', 'Hadjar', 'Lawson'
+  ];
+
+  var PREDICTION_SCORING = {
+    exact: [10, 8, 6],
+    wrongPos: 3
+  };
+
   // Expose to global scope
   window.TripData = {
     RACE_SESSIONS: RACE_SESSIONS,
@@ -200,6 +212,8 @@
     PERSON_EMOJIS: PERSON_EMOJIS,
     ROUTE_LEGS: ROUTE_LEGS,
     DEPARTURE_BUFFERS: DEPARTURE_BUFFERS,
-    TRAVEL_TIPS: TRAVEL_TIPS
+    TRAVEL_TIPS: TRAVEL_TIPS,
+    F1_DRIVERS: F1_DRIVERS,
+    PREDICTION_SCORING: PREDICTION_SCORING
   };
 })();

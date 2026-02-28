@@ -232,7 +232,136 @@
     html += '</div>';
     html += '</div>';
 
+    // Weather card
+    html += '<div class="card mt-md">';
+    html += '<div class="card-header"><span class="card-title">\uD83C\uDF24\uFE0F Weer Budapest</span></div>';
+    html += '<div id="weather-content">';
+    html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">Weer laden...</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Prediction mini card
+    html += renderDashboardPrediction();
+
     container.innerHTML = html;
+    loadWeatherCard();
+  }
+
+  /* ---------- Weather ---------- */
+  function loadWeatherCard() {
+    window.TripWeather.fetchWeather(function (err, data) {
+      var el = document.getElementById('weather-content');
+      if (!el) return;
+
+      var shortDays = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
+      var sessionDays = {
+        '2026-07-24': 'VT1 \u2022 VT2',
+        '2026-07-25': 'VT3 \u2022 QUAL',
+        '2026-07-26': 'RACE'
+      };
+
+      var html = '<div class="weather-days">';
+
+      data.days.forEach(function (day) {
+        var d = new Date(day.date + 'T12:00:00');
+        var dayName = shortDays[d.getDay()];
+        var dayNum = d.getDate();
+        var isRaceDay = sessionDays[day.date];
+
+        html += '<div class="weather-day' + (day.date === '2026-07-26' ? ' weather-day--race' : '') + '">';
+        html += '<div class="weather-day-name">' + dayName + '</div>';
+        html += '<div class="weather-day-date">' + dayNum + ' jul</div>';
+        html += '<div class="weather-day-icon">' + day.icon + '</div>';
+        html += '<div class="weather-day-temp">' + day.tempMax + '\u00B0</div>';
+        html += '<div class="weather-day-temp-min">' + day.tempMin + '\u00B0</div>';
+        html += '<div class="weather-day-rain">\uD83D\uDCA7 ' + day.precipProb + '%</div>';
+        if (isRaceDay) {
+          html += '<div class="weather-day-session">' + isRaceDay + '</div>';
+        }
+        html += '</div>';
+      });
+
+      html += '</div>';
+
+      if (!data.isReal) {
+        html += '<div class="weather-note">Typisch juli weer \u2022 Echte voorspelling dichter bij datum</div>';
+      }
+
+      el.innerHTML = html;
+    });
+  }
+
+  /* ---------- Prediction Helpers ---------- */
+  function renderDashboardPrediction() {
+    var html = '';
+    var predictions = appData.predictions || {};
+    var raceResult = appData.raceResult;
+    var hasPredictions = Object.keys(predictions).some(function (k) {
+      var p = predictions[k];
+      return p && (p.p1 || p.p2 || p.p3);
+    });
+
+    if (!hasPredictions && !raceResult) return '';
+
+    html += '<div class="card mt-md">';
+    html += '<div class="card-header"><span class="card-title">\uD83C\uDFC6 Race Voorspelling</span></div>';
+
+    if (raceResult && raceResult.p1) {
+      var scores = [];
+      appData.group.forEach(function (person) {
+        var name = person.name || '';
+        if (!name) return;
+        var pred = predictions[name];
+        var score = calculateScore(pred, raceResult);
+        scores.push({ name: name, emoji: person.emoji || '\uD83D\uDC64', score: score });
+      });
+
+      scores.sort(function (a, b) { return b.score - a.score; });
+
+      var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+      scores.forEach(function (s, i) {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;' + (i < scores.length - 1 ? 'border-bottom:1px solid var(--bg-tertiary)' : '') + '">';
+        html += '<span style="font-size:16px">' + (medals[i] || (i + 1) + '.') + '</span>';
+        html += '<span style="font-size:14px">' + s.emoji + '</span>';
+        html += '<span style="flex:1;font-size:13px;font-weight:600">' + escapeHTML(s.name) + '</span>';
+        html += '<span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--accent-green)">' + s.score + ' pts</span>';
+        html += '</div>';
+      });
+    } else {
+      var count = 0;
+      Object.keys(predictions).forEach(function (k) {
+        var p = predictions[k];
+        if (p && p.p1 && p.p2 && p.p3) count++;
+      });
+      html += '<div style="font-size:13px;color:var(--text-secondary);padding:8px 0">';
+      html += '\uD83D\uDCCB ' + count + ' van ' + appData.group.length + ' voorspellingen ingevuld';
+      html += '</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted)">Vul je top 3 in bij de Groep tab</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function calculateScore(prediction, result) {
+    if (!prediction || !result) return 0;
+    var score = 0;
+    var positions = ['p1', 'p2', 'p3'];
+    var points = window.TripData.PREDICTION_SCORING.exact;
+    var wrongPosPoints = window.TripData.PREDICTION_SCORING.wrongPos;
+
+    positions.forEach(function (pos, i) {
+      var predicted = prediction[pos];
+      if (!predicted) return;
+
+      if (predicted === result[pos]) {
+        score += points[i];
+      } else if (predicted === result.p1 || predicted === result.p2 || predicted === result.p3) {
+        score += wrongPosPoints;
+      }
+    });
+
+    return score;
   }
 
   /* ---------- Schedule ---------- */
@@ -667,6 +796,9 @@
 
     html += '<button class="btn-primary mt-md" onclick="window.App.addPerson()">+ Persoon toevoegen</button>';
 
+    // Prediction game
+    html += renderAccordion('predictions', '\uD83C\uDFC6 Race Voorspelling', renderPredictionContent(), false);
+
     // Emoji picker overlay (hidden)
     html += '<div class="emoji-picker" id="emoji-picker">';
     window.TripData.PERSON_EMOJIS.forEach(function (emoji) {
@@ -906,6 +1038,107 @@
     html += '<div class="transport-tip">\u26A0\uFE0F Na de race: verwacht lange wachtrijen bij de shuttle (30-60 min). De H\u00C9V rijdt tot ~23:00. Overweeg om 20 min naar Mogyor\u00F3d dorp te lopen voor een taxi als alternatief.</div>';
     html += '<div class="transport-tip" style="margin-top:8px">\uD83D\uDCA1 Tip: Na de kwalificatie is het veel rustiger. Shuttles rijden vlot en je bent binnen een uur terug.</div>';
     html += '</div>';
+    return html;
+  }
+
+  /* ---------- Prediction Game ---------- */
+  function renderPredictionContent() {
+    var html = '';
+    var drivers = window.TripData.F1_DRIVERS;
+    var predictions = appData.predictions || {};
+    var raceResult = appData.raceResult;
+
+    if (appData.group.length === 0) {
+      html += '<div class="text-muted" style="font-size:13px;padding:12px 0">Voeg eerst personen toe aan de groep</div>';
+      return html;
+    }
+
+    html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-sm)">Voorspel de top 3 van de race. Punten: P1 exact = 10, P2 = 8, P3 = 6, juiste coureur verkeerde plek = 3</p>';
+
+    // Per-person prediction forms
+    appData.group.forEach(function (person, i) {
+      var personName = person.name || ('Persoon ' + (i + 1));
+      var pred = predictions[personName] || {};
+
+      html += '<div class="prediction-card">';
+      html += '<div class="prediction-person-header">';
+      html += '<span class="prediction-person-emoji">' + (person.emoji || '\uD83D\uDC64') + '</span>';
+      html += '<span class="prediction-person-name">' + escapeHTML(personName) + '</span>';
+      if (pred.p1 && pred.p2 && pred.p3) {
+        html += '<span style="font-size:11px;color:var(--accent-green)">\u2705</span>';
+      }
+      html += '</div>';
+
+      html += '<div class="prediction-picks">';
+      ['p1', 'p2', 'p3'].forEach(function (pos, j) {
+        html += '<div class="prediction-pick">';
+        html += '<div class="prediction-pick-label">P' + (j + 1) + '</div>';
+        html += '<select class="prediction-select" data-person="' + escapeAttr(personName) + '" data-position="' + pos + '" onchange="window.App.savePrediction(this)">';
+        html += '<option value="">Kies...</option>';
+        drivers.forEach(function (driver) {
+          html += '<option value="' + driver + '"' + (pred[pos] === driver ? ' selected' : '') + '>' + driver + '</option>';
+        });
+        html += '</select>';
+        html += '</div>';
+      });
+      html += '</div>';
+      html += '</div>';
+    });
+
+    // Leaderboard (if race result exists)
+    if (raceResult && raceResult.p1) {
+      html += '<div class="leaderboard">';
+      html += '<div style="font-size:14px;font-weight:700;margin-bottom:var(--space-sm)">\uD83C\uDFC6 Scorebord</div>';
+
+      var scores = [];
+      appData.group.forEach(function (person) {
+        var name = person.name || '';
+        if (!name) return;
+        var pred = predictions[name];
+        var score = calculateScore(pred, raceResult);
+        scores.push({ name: name, emoji: person.emoji || '\uD83D\uDC64', score: score, prediction: pred });
+      });
+
+      scores.sort(function (a, b) { return b.score - a.score; });
+
+      var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+      scores.forEach(function (s, i) {
+        html += '<div class="leaderboard-row">';
+        html += '<span class="leaderboard-pos">' + (medals[i] || (i + 1) + '.') + '</span>';
+        html += '<span style="font-size:16px">' + s.emoji + '</span>';
+        html += '<span class="leaderboard-name">' + escapeHTML(s.name) + '</span>';
+        html += '<span class="leaderboard-score">' + s.score + ' pts</span>';
+        html += '</div>';
+      });
+
+      html += '<div style="margin-top:12px;padding:var(--space-sm);background:var(--bg-secondary);border-radius:var(--radius-sm);font-size:12px;color:var(--text-secondary)">';
+      html += '<strong>Uitslag:</strong> \uD83E\uDD47 ' + escapeHTML(raceResult.p1) + ' \uD83E\uDD48 ' + escapeHTML(raceResult.p2) + ' \uD83E\uDD49 ' + escapeHTML(raceResult.p3);
+      html += '</div>';
+
+      html += '</div>';
+    }
+
+    // Race result input
+    html += '<div class="race-result-section">';
+    html += '<div class="race-result-title">\uD83C\uDFC1 Race Uitslag</div>';
+    html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-sm)">Vul in na de race om scores te berekenen</div>';
+
+    html += '<div class="prediction-picks">';
+    ['p1', 'p2', 'p3'].forEach(function (pos, j) {
+      html += '<div class="prediction-pick">';
+      html += '<div class="prediction-pick-label">P' + (j + 1) + '</div>';
+      html += '<select class="prediction-select" data-result-position="' + pos + '" onchange="window.App.saveRaceResult(this)">';
+      html += '<option value="">Kies...</option>';
+      drivers.forEach(function (driver) {
+        html += '<option value="' + driver + '"' + ((raceResult && raceResult[pos] === driver) ? ' selected' : '') + '>' + driver + '</option>';
+      });
+      html += '</select>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    html += '</div>';
+
     return html;
   }
 
@@ -1170,6 +1403,32 @@
         window.TripSync.disconnect();
         renderGroup();
       }
+    },
+
+    savePrediction: function (selectEl) {
+      var personName = selectEl.dataset.person;
+      var position = selectEl.dataset.position;
+      var driver = selectEl.value;
+
+      appData = window.TripStorage.loadData();
+      if (!appData.predictions) appData.predictions = {};
+      if (!appData.predictions[personName]) appData.predictions[personName] = {};
+      appData.predictions[personName][position] = driver;
+      window.TripStorage.saveData(appData);
+      window.TripSync.pushGroupChange();
+    },
+
+    saveRaceResult: function (selectEl) {
+      var position = selectEl.dataset.resultPosition;
+      var driver = selectEl.value;
+
+      appData = window.TripStorage.loadData();
+      if (!appData.raceResult) appData.raceResult = {};
+      appData.raceResult[position] = driver;
+      window.TripStorage.saveData(appData);
+      window.TripSync.pushGroupChange();
+      // Re-render to update leaderboard
+      renderGroup();
     }
   };
 

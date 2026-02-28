@@ -23,7 +23,7 @@
   /* Create a new room with current local group data */
   function createRoom(callback) {
     var localData = window.TripStorage.loadData();
-    var payload = { group: localData.group || [] };
+    var payload = { group: localData.group || [], predictions: localData.predictions || {}, raceResult: localData.raceResult || null };
 
     fetch(API_BASE, {
       method: 'POST',
@@ -50,9 +50,11 @@
       return res.json();
     }).then(function (data) {
       setRoomId(id);
-      // Replace local group with remote group
+      // Replace local data with remote data
       var localData = window.TripStorage.loadData();
       localData.group = data.group || [];
+      localData.predictions = data.predictions || {};
+      localData.raceResult = data.raceResult || null;
       window.TripStorage.saveData(localData);
       callback(null, data);
     }).catch(function (err) {
@@ -110,11 +112,16 @@
       var remoteGroup = remoteData.group || [];
 
       // Strip ticket images from comparison (they're local-only)
-      var changed = JSON.stringify(stripTickets(localData.group)) !== JSON.stringify(stripTickets(remoteGroup));
+      var groupChanged = JSON.stringify(stripTickets(localData.group)) !== JSON.stringify(stripTickets(remoteGroup));
+      var predictionsChanged = JSON.stringify(localData.predictions || {}) !== JSON.stringify(remoteData.predictions || {});
+      var resultChanged = JSON.stringify(localData.raceResult || null) !== JSON.stringify(remoteData.raceResult || null);
+      var changed = groupChanged || predictionsChanged || resultChanged;
 
       if (changed) {
         // Merge: keep ticket images from local, take everything else from remote
         localData.group = mergeWithLocalTickets(remoteGroup, localData.group);
+        localData.predictions = remoteData.predictions || {};
+        localData.raceResult = remoteData.raceResult || null;
         window.TripStorage.saveData(localData);
       }
 
@@ -179,7 +186,7 @@
     // Don't push ticket images (too large for free storage)
     var cleanGroup = stripTickets(localData.group);
 
-    pushRemote({ group: cleanGroup }, function (err) {
+    pushRemote({ group: cleanGroup, predictions: localData.predictions || {}, raceResult: localData.raceResult || null }, function (err) {
       if (callback) callback(err);
     });
   }

@@ -1544,3 +1544,201 @@ body::before {
   color: var(--text-secondary);
   line-height: 1.5;
 }
+
+/* ===== Weather Widget ===== */
+.weather-days {
+  display: flex;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--space-sm) 0;
+  scrollbar-width: none;
+}
+
+.weather-days::-webkit-scrollbar {
+  display: none;
+}
+
+.weather-day {
+  flex: 1;
+  min-width: 62px;
+  text-align: center;
+  padding: var(--space-sm) var(--space-xs);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.2s;
+  border: 1px solid transparent;
+}
+
+.weather-day--race {
+  border-color: var(--f1-red);
+}
+
+.weather-day-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.weather-day-date {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.weather-day-icon {
+  font-size: 24px;
+  margin: 4px 0;
+  line-height: 1;
+}
+
+.weather-day-temp {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.weather-day-temp-min {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.weather-day-rain {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.weather-day-session {
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--f1-red);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.weather-note {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: var(--space-sm);
+  font-style: italic;
+}
+
+/* ===== Prediction Game ===== */
+.prediction-card {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.prediction-person-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.prediction-person-emoji {
+  font-size: 20px;
+}
+
+.prediction-person-name {
+  font-size: 14px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.prediction-picks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+}
+
+.prediction-pick {
+  text-align: center;
+}
+
+.prediction-pick-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.prediction-select {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 8px 4px;
+  color: var(--text-primary);
+  font-family: var(--font-primary);
+  font-size: 11px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.prediction-select:focus {
+  border-color: var(--f1-red);
+}
+
+/* Leaderboard */
+.leaderboard {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--bg-tertiary);
+}
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.leaderboard-pos {
+  font-size: 18px;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.leaderboard-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.leaderboard-score {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-green);
+}
+
+/* Race result input */
+.race-result-section {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--f1-red);
+}
+
+.race-result-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: var(--space-xs);
+}

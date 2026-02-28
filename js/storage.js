@@ -21,7 +21,9 @@
       savedRestaurants: []
     },
     transportNotes: '',
-    tickets: []  // { name: '', dataUrl: '', type: '' }
+    tickets: [],  // { name: '', dataUrl: '', type: '' }
+    predictions: {},
+    raceResult: null
   };
 
   function deepClone(obj) {
@@ -48,6 +50,8 @@
         }
         if (parsed.transportNotes !== undefined) merged.transportNotes = parsed.transportNotes;
         if (parsed.tickets) merged.tickets = parsed.tickets;
+        if (parsed.predictions) merged.predictions = parsed.predictions;
+        if (parsed.raceResult !== undefined) merged.raceResult = parsed.raceResult;
         return merged;
       }
     } catch (e) {
