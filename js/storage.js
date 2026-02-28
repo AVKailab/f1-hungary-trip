@@ -6,12 +6,12 @@
 
   var DEFAULT_DATA = {
     hotel: {
-      name: '',
-      address: '',
+      name: 'Rooftop City Residence',
+      address: 'Garay t\u00E9r 20, 1076 Budapest, Hongarije',
       checkIn: '2026-07-23',
       checkOut: '2026-07-27',
-      lat: null,
-      lng: null,
+      lat: 47.4975,
+      lng: 19.0775,
       notes: ''
     },
     group: [],
