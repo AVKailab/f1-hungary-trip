@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#15151E">
+  <title>F1 Hungary 2026</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-flag-pattern"></div>
+    <h1 class="app-title">
+      <span class="title-f1">F1</span> HUNGARIAN GP <span class="title-year">2026</span>
+    </h1>
+    <p class="app-subtitle">Hungaroring &middot; Budapest</p>
+  </header>
+
+  <!-- Tab Contents -->
+  <main class="app-main">
+
+    <!-- Dashboard -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div id="dashboard-content"></div>
+    </section>
+
+    <!-- Schedule -->
+    <section id="tab-schedule" class="tab-content">
+      <div id="schedule-content"></div>
+    </section>
+
+    <!-- Info (Hotel + Transport + Dining) -->
+    <section id="tab-info" class="tab-content">
+      <div id="info-content"></div>
+    </section>
+
+    <!-- Map -->
+    <section id="tab-map" class="tab-content">
+      <div id="map-container"></div>
+      <div class="map-controls">
+        <button class="map-btn" id="map-fit-all" title="Alles tonen">
+          <span>&#x1F50D;</span> Alles tonen
+        </button>
+        <button class="map-btn" id="map-set-hotel" title="Hotel pin plaatsen">
+          <span>&#x1F4CD;</span> Hotel pin
+        </button>
+      </div>
+      <div id="map-set-hotel-hint" class="map-hint hidden">Tik op de kaart om je hotel te markeren</div>
+    </section>
+
+    <!-- Group -->
+    <section id="tab-group" class="tab-content">
+      <div id="group-content"></div>
+    </section>
+
+    <!-- Reis (Travel Planner) -->
+    <section id="tab-reis" class="tab-content">
+      <div id="reis-content"></div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="tab-nav" role="tablist">
+    <button class="tab-nav-item active" data-tab="tab-dashboard" role="tab" aria-selected="true">
+      <span class="nav-icon">&#x1F3E0;</span>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="tab-nav-item" data-tab="tab-schedule" role="tab" aria-selected="false">
+      <span class="nav-icon">&#x1F3C1;</span>
+      <span class="nav-label">Schema</span>
+    </button>
+    <button class="tab-nav-item" data-tab="tab-info" role="tab" aria-selected="false">
+      <span class="nav-icon">&#x2139;&#xFE0F;</span>
+      <span class="nav-label">Info</span>
+    </button>
+    <button class="tab-nav-item" data-tab="tab-map" role="tab" aria-selected="false">
+      <span class="nav-icon">&#x1F5FA;&#xFE0F;</span>
+      <span class="nav-label">Kaart</span>
+    </button>
+    <button class="tab-nav-item" data-tab="tab-group" role="tab" aria-selected="false">
+      <span class="nav-icon">&#x1F465;</span>
+      <span class="nav-label">Groep</span>
+    </button>
+    <button class="tab-nav-item" data-tab="tab-reis" role="tab" aria-selected="false">
+      <span class="nav-icon">&#x1F686;</span>
+      <span class="nav-label">Reis</span>
+    </button>
+  </nav>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="js/data.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/countdown.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
