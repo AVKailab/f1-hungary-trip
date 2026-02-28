@@ -240,8 +240,8 @@
     html += '</div>';
     html += '</div>';
 
-    // Prediction mini card
-    html += renderDashboardPrediction();
+    // Prediction game (full)
+    html += renderAccordion('predictions', '\uD83C\uDFC6 Race Voorspelling', renderPredictionContent(), false);
 
     container.innerHTML = html;
     loadWeatherCard();
@@ -292,57 +292,6 @@
   }
 
   /* ---------- Prediction Helpers ---------- */
-  function renderDashboardPrediction() {
-    var html = '';
-    var predictions = appData.predictions || {};
-    var raceResult = appData.raceResult;
-    var hasPredictions = Object.keys(predictions).some(function (k) {
-      var p = predictions[k];
-      return p && (p.p1 || p.p2 || p.p3);
-    });
-
-    if (!hasPredictions && !raceResult) return '';
-
-    html += '<div class="card mt-md">';
-    html += '<div class="card-header"><span class="card-title">\uD83C\uDFC6 Race Voorspelling</span></div>';
-
-    if (raceResult && raceResult.p1) {
-      var scores = [];
-      appData.group.forEach(function (person) {
-        var name = person.name || '';
-        if (!name) return;
-        var pred = predictions[name];
-        var score = calculateScore(pred, raceResult);
-        scores.push({ name: name, emoji: person.emoji || '\uD83D\uDC64', score: score });
-      });
-
-      scores.sort(function (a, b) { return b.score - a.score; });
-
-      var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
-      scores.forEach(function (s, i) {
-        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;' + (i < scores.length - 1 ? 'border-bottom:1px solid var(--bg-tertiary)' : '') + '">';
-        html += '<span style="font-size:16px">' + (medals[i] || (i + 1) + '.') + '</span>';
-        html += '<span style="font-size:14px">' + s.emoji + '</span>';
-        html += '<span style="flex:1;font-size:13px;font-weight:600">' + escapeHTML(s.name) + '</span>';
-        html += '<span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--accent-green)">' + s.score + ' pts</span>';
-        html += '</div>';
-      });
-    } else {
-      var count = 0;
-      Object.keys(predictions).forEach(function (k) {
-        var p = predictions[k];
-        if (p && p.p1 && p.p2 && p.p3) count++;
-      });
-      html += '<div style="font-size:13px;color:var(--text-secondary);padding:8px 0">';
-      html += '\uD83D\uDCCB ' + count + ' van ' + appData.group.length + ' voorspellingen ingevuld';
-      html += '</div>';
-      html += '<div style="font-size:11px;color:var(--text-muted)">Vul je top 3 in bij de Groep tab</div>';
-    }
-
-    html += '</div>';
-    return html;
-  }
-
   function calculateScore(prediction, result) {
     if (!prediction || !result) return 0;
     var score = 0;
@@ -796,9 +745,6 @@
 
     html += '<button class="btn-primary mt-md" onclick="window.App.addPerson()">+ Persoon toevoegen</button>';
 
-    // Prediction game
-    html += renderAccordion('predictions', '\uD83C\uDFC6 Race Voorspelling', renderPredictionContent(), false);
-
     // Emoji picker overlay (hidden)
     html += '<div class="emoji-picker" id="emoji-picker">';
     window.TripData.PERSON_EMOJIS.forEach(function (emoji) {
@@ -1049,7 +995,7 @@
     var raceResult = appData.raceResult;
 
     if (appData.group.length === 0) {
-      html += '<div class="text-muted" style="font-size:13px;padding:12px 0">Voeg eerst personen toe aan de groep</div>';
+      html += '<div class="text-muted" style="font-size:13px;padding:12px 0">Voeg eerst personen toe bij <strong>Groep</strong></div>';
       return html;
     }
 
@@ -1428,7 +1374,7 @@
       window.TripStorage.saveData(appData);
       window.TripSync.pushGroupChange();
       // Re-render to update leaderboard
-      renderGroup();
+      renderDashboard();
     }
   };
 
