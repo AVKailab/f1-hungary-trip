@@ -7,6 +7,7 @@
   var pollTimer = null;
   var onUpdateCallback = null;
   var isSyncing = false;
+  var pushCooldownUntil = 0; // Timestamp: skip sync until this time after a push
 
   function getRoomId() {
     return localStorage.getItem('f1Trip_syncRoom') || null;
@@ -99,6 +100,8 @@
   /* Sync: fetch remote, update local, notify */
   function sync(callback) {
     if (isSyncing || !isConnected()) return;
+    // Skip sync during push cooldown to prevent overwriting local changes
+    if (Date.now() < pushCooldownUntil) return;
     isSyncing = true;
 
     fetchRemote(function (err, remoteData) {
@@ -182,11 +185,21 @@
       return;
     }
 
+    // Set cooldown: prevent sync from overwriting local data while push is in flight
+    // 10s gives enough time for the PUT to complete and propagate
+    pushCooldownUntil = Date.now() + 10000;
+
     var localData = window.TripStorage.loadData();
     // Don't push ticket images (too large for free storage)
     var cleanGroup = stripTickets(localData.group);
 
     pushRemote({ group: cleanGroup, predictions: localData.predictions || {}, raceResult: localData.raceResult || null }, function (err) {
+      // After push succeeds, allow sync again after a short delay
+      if (!err) {
+        pushCooldownUntil = Date.now() + 2000;
+      } else {
+        pushCooldownUntil = 0;
+      }
       if (callback) callback(err);
     });
   }
