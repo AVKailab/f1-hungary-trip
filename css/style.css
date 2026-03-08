@@ -165,9 +165,9 @@ body::before {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: var(--space-xs) var(--space-sm);
+  padding: var(--space-xs) 4px;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 9px;
   font-family: var(--font-primary);
   text-decoration: none;
   transition: color 0.2s;
@@ -183,7 +183,7 @@ body::before {
 }
 
 .tab-nav-item .nav-icon {
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1;
 }
 
@@ -1162,6 +1162,267 @@ body::before {
   color: var(--accent-green);
   font-size: 18px;
   font-weight: 700;
+}
+
+/* ===== Results Tab ===== */
+.results-loading {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* WK Stand Card */
+.results-standings-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--bg-tertiary);
+}
+
+.results-standings-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+  color: var(--text-primary);
+}
+
+.results-standing-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 13px;
+}
+
+.results-standing-row:last-child {
+  border-bottom: none;
+}
+
+.results-pos {
+  width: 24px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.results-pos.gold { color: #FFD700; }
+.results-pos.silver { color: #C0C0C0; }
+.results-pos.bronze { color: #CD7F32; }
+
+.results-team-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.results-driver-name {
+  flex: 1;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.results-team-name {
+  color: var(--text-muted);
+  font-size: 11px;
+  display: none;
+}
+
+@media (min-width: 400px) {
+  .results-team-name {
+    display: inline;
+  }
+}
+
+.results-points {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 12px;
+  min-width: 45px;
+  text-align: right;
+}
+
+/* Races Section */
+.results-races-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+  color: var(--text-primary);
+}
+
+/* Race Card */
+.results-race-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  border: 1px solid var(--bg-tertiary);
+}
+
+.results-race-card--hungary {
+  border-color: var(--f1-red);
+  box-shadow: 0 0 12px var(--f1-red-glow);
+}
+
+.results-race-card--upcoming {
+  opacity: 0.6;
+}
+
+.results-race-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.results-race-round {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.results-race-card--hungary .results-race-round {
+  background: var(--f1-red);
+  color: white;
+}
+
+.results-race-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.results-race-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.results-race-circuit {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.results-race-date {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.results-race-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+}
+
+.results-race-badge.completed {
+  background: rgba(0, 212, 99, 0.12);
+  color: var(--accent-green);
+}
+
+.results-race-badge.upcoming {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+/* Podium */
+.results-podium {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.results-podium-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 13px;
+}
+
+.results-podium-medal {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+}
+
+.results-podium-driver {
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.results-podium-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Full Results (expandable) */
+.results-full {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.results-full-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.results-full-pos {
+  width: 28px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.results-full-driver {
+  flex: 1;
+  color: var(--text-secondary);
+}
+
+.results-full-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Hungary badge */
+.results-hungary-badge {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(225, 6, 0, 0.1);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--f1-red);
+  text-align: center;
 }
 
 /* ===== Reisplanner - Route Summary Bar ===== */

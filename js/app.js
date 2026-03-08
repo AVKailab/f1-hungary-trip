@@ -64,6 +64,7 @@
       case 'tab-dashboard': renderDashboard(); break;
       case 'tab-schedule': renderSchedule(); break;
       case 'tab-info': renderInfo(); break;
+      case 'tab-results': renderResults(); break;
       case 'tab-group': renderGroup(); break;
       case 'tab-reis': renderReis(); break;
     }
@@ -628,6 +629,156 @@
     });
   }
 
+  /* ---------- Results Tab ---------- */
+  var resultsDataCache = null;
+
+  function renderResults() {
+    var container = document.getElementById('results-content');
+    container.innerHTML = '<div class="results-loading">\uD83C\uDFC1 Uitslagen laden...</div>';
+
+    if (resultsDataCache) {
+      renderResultsContent(container, resultsDataCache);
+      return;
+    }
+
+    window.F1Results.loadAll(function (data) {
+      resultsDataCache = data;
+      renderResultsContent(container, data);
+    });
+  }
+
+  function renderResultsContent(container, data) {
+    var html = '';
+    html += '<div class="section-title">\uD83C\uDFC6 F1 2026 Uitslagen</div>';
+
+    if (data.errors.length > 0 && !data.calendar) {
+      html += '<div class="empty-state">Kan uitslagen niet laden.<br>Controleer je internetverbinding.</div>';
+      container.innerHTML = html;
+      return;
+    }
+
+    /* --- WK Stand --- */
+    if (data.standings && data.standings.length > 0) {
+      html += '<div class="results-standings-card">';
+      html += '<div class="results-standings-title">\uD83C\uDFC5 WK Stand Coureurs</div>';
+      var top = Math.min(data.standings.length, 10);
+      for (var s = 0; s < top; s++) {
+        var ds = data.standings[s];
+        if (!ds.position && ds.positionText === '-') continue;
+        var teamColor = window.F1Results.getTeamColor(ds.Constructors[0].constructorId);
+        var posClass = s === 0 ? 'gold' : s === 1 ? 'silver' : s === 2 ? 'bronze' : '';
+        html += '<div class="results-standing-row">';
+        html += '<span class="results-pos ' + posClass + '">' + ds.position + '</span>';
+        html += '<span class="results-team-dot" style="background:' + teamColor + '"></span>';
+        html += '<span class="results-driver-name">' + ds.Driver.givenName.charAt(0) + '. ' + ds.Driver.familyName + '</span>';
+        html += '<span class="results-team-name">' + ds.Constructors[0].name + '</span>';
+        html += '<span class="results-points">' + ds.points + ' pts</span>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+
+    /* --- Race cards --- */
+    var calendar = data.calendar || [];
+    var resultsMap = {};
+    if (data.results) {
+      data.results.forEach(function (r) {
+        resultsMap[r.round] = r.Results;
+      });
+    }
+
+    var now = new Date();
+
+    html += '<div class="results-races-title">\uD83D\uDCC5 Alle Races</div>';
+
+    calendar.forEach(function (race) {
+      var raceDate = new Date(race.date + 'T' + (race.time || '00:00:00Z'));
+      var isPast = now > raceDate;
+      var results = resultsMap[race.round];
+      var isHungary = race.Circuit.circuitId === 'hungaroring';
+      var flag = window.F1Results.getFlag(race.Circuit.Location.country);
+
+      var cardClass = 'results-race-card';
+      if (isHungary) cardClass += ' results-race-card--hungary';
+      if (!isPast) cardClass += ' results-race-card--upcoming';
+
+      html += '<div class="' + cardClass + '">';
+
+      /* Header */
+      html += '<div class="results-race-header"';
+      if (results && results.length > 0) {
+        html += ' onclick="window.App.toggleResultCard(\'' + race.round + '\')"';
+        html += ' style="cursor:pointer"';
+      }
+      html += '>';
+      html += '<div class="results-race-round">R' + race.round + '</div>';
+      html += '<div class="results-race-info">';
+      html += '<div class="results-race-name">' + flag + ' ' + race.raceName + '</div>';
+      html += '<div class="results-race-circuit">' + race.Circuit.circuitName + '</div>';
+      html += '<div class="results-race-date">' + formatRaceDate(race.date) + '</div>';
+      html += '</div>';
+
+      if (results && results.length > 0) {
+        html += '<div class="results-race-badge completed">\u2705</div>';
+      } else if (isPast) {
+        html += '<div class="results-race-badge completed">Klaar</div>';
+      } else {
+        html += '<div class="results-race-badge upcoming">Nog niet gereden</div>';
+      }
+      html += '</div>'; // header
+
+      /* Podium (top 3) - always visible for completed races */
+      if (results && results.length >= 3) {
+        html += '<div class="results-podium">';
+        for (var p = 0; p < 3; p++) {
+          var dr = results[p];
+          var tc = window.F1Results.getTeamColor(dr.Constructor.constructorId);
+          var medal = p === 0 ? '\uD83E\uDD47' : p === 1 ? '\uD83E\uDD48' : '\uD83E\uDD49';
+          html += '<div class="results-podium-item">';
+          html += '<span class="results-podium-medal">' + medal + '</span>';
+          html += '<span class="results-podium-driver" style="border-left:3px solid ' + tc + ';padding-left:6px">';
+          html += dr.Driver.familyName;
+          html += '</span>';
+          html += '<span class="results-podium-time">' + (dr.Time ? dr.Time.time : dr.status) + '</span>';
+          html += '</div>';
+        }
+        html += '</div>';
+
+        /* Full results (top 10) - hidden by default */
+        if (results.length > 3) {
+          html += '<div class="results-full" id="results-full-' + race.round + '" style="display:none">';
+          var showCount = Math.min(results.length, 10);
+          for (var r = 3; r < showCount; r++) {
+            var drf = results[r];
+            var tcf = window.F1Results.getTeamColor(drf.Constructor.constructorId);
+            html += '<div class="results-full-row">';
+            html += '<span class="results-full-pos">P' + drf.position + '</span>';
+            html += '<span class="results-team-dot" style="background:' + tcf + '"></span>';
+            html += '<span class="results-full-driver">' + drf.Driver.familyName + '</span>';
+            html += '<span class="results-full-time">' + (drf.Time ? drf.Time.time : drf.status) + '</span>';
+            html += '</div>';
+          }
+          html += '</div>';
+        }
+      }
+
+      if (isHungary && !isPast) {
+        html += '<div class="results-hungary-badge">\uD83C\uDDED\uD83C\uDDFA Wij zijn erbij!</div>';
+      }
+
+      html += '</div>'; // card
+    });
+
+    container.innerHTML = html;
+  }
+
+  function formatRaceDate(dateStr) {
+    var months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+    var days = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'];
+    var d = new Date(dateStr + 'T12:00:00Z');
+    return days[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + months[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+  }
+
   /* ---------- Group Tab ---------- */
   function renderGroup() {
     var container = document.getElementById('group-content');
@@ -1038,6 +1189,13 @@
     toggleRouteStep: function (id) {
       var step = document.getElementById('route-step-' + id);
       if (step) step.classList.toggle('open');
+    },
+
+    toggleResultCard: function (round) {
+      var el = document.getElementById('results-full-' + round);
+      if (el) {
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      }
     },
 
     viewTicket: function (index) {
