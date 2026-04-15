@@ -14,7 +14,12 @@
       lng: 19.0775,
       notes: ''
     },
-    group: [],
+    group: [
+      { name: 'Andres', emoji: '\uD83C\uDFCE\uFE0F', notes: '' },
+      { name: 'Richard', emoji: '\uD83C\uDFC1', notes: '' },
+      { name: 'Bert', emoji: '\uD83E\uDDD1\u200D\uD83D\uDE80', notes: '' },
+      { name: 'Bertus', emoji: '\uD83D\uDE0E', notes: '' }
+    ],
     dining: {
       breakfastPlans: {},
       dinnerPlans: {},

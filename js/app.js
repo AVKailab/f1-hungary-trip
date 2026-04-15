@@ -1061,7 +1061,6 @@
         html += '<input type="text" class="person-name-input" data-index="' + i + '" data-field="name" value="' + escapeAttr(person.name) + '" placeholder="Naam">';
         html += '<input type="text" class="person-notes-input" data-index="' + i + '" data-field="notes" value="' + escapeAttr(person.notes || '') + '" placeholder="Notities (optioneel)">';
         html += '</div>';
-        html += '<button class="remove-person-btn" onclick="window.App.removePerson(' + i + ')" title="Verwijderen">\u2715</button>';
         html += '</div>';
 
         // Seat info
@@ -1092,7 +1091,6 @@
       });
     }
 
-    html += '<button class="btn-primary mt-md" onclick="window.App.addPerson()">+ Persoon toevoegen</button>';
 
     // Emoji picker overlay (hidden)
     html += '<div class="emoji-picker" id="emoji-picker">';
