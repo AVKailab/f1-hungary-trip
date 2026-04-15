@@ -200,6 +200,242 @@
     wrongPos: 3
   };
 
+  /* ---------- Car Info ---------- */
+  var CAR_INFO = {
+    model: 'Ford Mustang Mach-E',
+    range: 450,
+    unit: 'km',
+    maxHeight: '1.80m',
+    note: 'Parkeergarage hotel max 1.80m \u2014 check hoogte!'
+  };
+
+  /* ---------- Roadtrip Legs (NL \u2192 Budapest, ~1.300km) ---------- */
+  var ROADTRIP_LEGS = [
+    {
+      id: 'rt-1',
+      icon: '\uD83D\uDE97',
+      type: 'drive',
+      title: 'Nederland \u2192 K\u00F6ln',
+      subtitle: 'Start vanuit NL richting Duitsland',
+      duration: '~2,5 uur',
+      distance: '~250 km',
+      details: 'Via A2/A3 richting K\u00F6ln. Geen vignet nodig in Duitsland.',
+      tips: 'Tank vol voor vertrek. Duitse Autobahn heeft wisselende snelheidslimieten.'
+    },
+    {
+      id: 'rt-charge1',
+      icon: '\u26A1',
+      type: 'charge',
+      title: 'Laadstop K\u00F6ln omgeving',
+      subtitle: 'Snelladen ~30 min',
+      duration: '~30 min',
+      distance: null,
+      details: 'Snellaadstation langs de Autobahn. Zoek via ABRP of Plugsurfing.',
+      tips: 'Plan laadstop via A Better Route Planner (ABRP) app. Neem iets te eten mee of zoek een Rasthof.'
+    },
+    {
+      id: 'rt-2',
+      icon: '\uD83D\uDE97',
+      type: 'drive',
+      title: 'K\u00F6ln \u2192 Passau',
+      subtitle: 'Door Duitsland richting Oostenrijkse grens',
+      duration: '~5 uur',
+      distance: '~530 km',
+      details: 'Via A3/A9 richting Passau. Na M\u00FCnchen wordt het rustiger.',
+      tips: 'Koop v\u00F3\u00F3r Passau de Oostenrijkse digitale vignet (e-Vignette) online op asfinag.at.'
+    },
+    {
+      id: 'rt-charge2',
+      icon: '\u26A1',
+      type: 'charge',
+      title: 'Laadstop Passau / grensgebied',
+      subtitle: 'Snelladen ~30 min',
+      duration: '~30 min',
+      distance: null,
+      details: 'Laadstation bij Passau of net over de Oostenrijkse grens. IONITY stations langs A1/A3.',
+      tips: 'Laad hier goed bij voor de laatste etappe naar Budapest. Check de laadhoeveelheid \u2014 je hebt nog ~300km te gaan.'
+    },
+    {
+      id: 'rt-overnight',
+      icon: '\uD83C\uDFE8',
+      type: 'overnight',
+      title: 'Overnachting onderweg (optioneel)',
+      subtitle: 'Bijvoorbeeld in Linz of Wenen',
+      duration: 'Overnachting',
+      distance: null,
+      details: 'Als je de rit wilt splitsen, is Linz of Wenen een goede tussenstop. Boek een hotel met EV-lader.',
+      tips: 'Als je doorrijdt: reken op ~10 uur totale rijtijd + laadstops. Vroeg vertrekken!'
+    },
+    {
+      id: 'rt-3',
+      icon: '\uD83D\uDE97',
+      type: 'drive',
+      title: 'Passau \u2192 Budapest',
+      subtitle: 'Via Wenen en Bratislava naar Hongarije',
+      duration: '~4 uur',
+      distance: '~450 km',
+      details: 'Via A1 (Oostenrijk) \u2192 A4 \u2192 M1 (Hongarije). Koop Hongaarse e-vignet op ematrica.hu.',
+      tips: 'Hongaarse vignet (e-matrica) is verplicht op snelwegen. Online kopen op ematrica.hu of bij tankstations.'
+    },
+    {
+      id: 'rt-arrive',
+      icon: '\uD83C\uDFC1',
+      type: 'arrive',
+      title: 'Aankomst Budapest',
+      subtitle: 'Rooftop City Residence \u2014 Garay t\u00E9r 20',
+      duration: null,
+      distance: '~1.300 km totaal',
+      details: 'Parkeren bij het hotel of in de buurt. Let op: max hoogte parkeergarage is 1.80m!',
+      tips: 'Check of je auto past in de garage. Alternatief: straatparkeren (betaald, zones gelden overdag).'
+    }
+  ];
+
+  /* ---------- Circuit Route Heen (Hotel \u2192 Hungaroring Gate 6) ---------- */
+  var CIRCUIT_ROUTE_TO = [
+    {
+      id: 'ct-walk',
+      icon: '\uD83D\uDEB6',
+      title: 'Lopen naar Keleti',
+      subtitle: 'Hotel \u2192 Keleti p\u00E1lyaudvar',
+      duration: '~5 min',
+      distance: '~400m',
+      details: 'Loop via Garay t\u00E9r richting het station. Volg de borden naar de M2 metro ingang.',
+      tips: 'De ingang naar de M2 metro is aan de zuidkant van het station.'
+    },
+    {
+      id: 'ct-metro',
+      icon: '\uD83D\uDE87',
+      title: 'M2 Metro (rode lijn)',
+      subtitle: 'Keleti \u2192 \u00D6rs vez\u00E9r tere',
+      duration: '~8 min',
+      distance: '4 haltes',
+      details: 'Richting \u00D6rs vez\u00E9r tere. Haltes: Keleti \u2192 Pusk\u00E1s Ferenc Stadion \u2192 Pillang\u00F3 utca \u2192 \u00D6rs vez\u00E9r tere.',
+      tips: 'De metro rijdt elke 2-5 minuten. Valideer je kaartje bij de gele automaten.'
+    },
+    {
+      id: 'ct-hev',
+      icon: '\uD83D\uDE83',
+      title: 'H\u00C9V H8 trein',
+      subtitle: '\u00D6rs vez\u00E9r tere \u2192 Szilasliget',
+      duration: '~20 min',
+      distance: null,
+      details: 'Richting G\u00F6d\u00F6ll\u0151. Stap uit bij halte Szilasliget (niet Kerepes!). Dit is de dichtstbijzijnde halte voor Gate 6.',
+      tips: 'Szilasliget is 1 halte v\u00F3\u00F3r Kerepes. Kijk goed naar de halte-aanduidingen. Budapest-kaart is geldig op de H\u00C9V binnen de stadsgrenzen.'
+    },
+    {
+      id: 'ct-walk2',
+      icon: '\uD83D\uDEB6',
+      title: 'Lopen naar Gate 6',
+      subtitle: 'Szilasliget \u2192 Hungaroring Gate 6',
+      duration: '~15 min',
+      distance: '~1 km',
+      details: 'Loop vanaf het station richting het circuit. Volg de borden en de menigte. Gate 6 is aan de noordkant van het circuit.',
+      tips: 'Gate 6 is het dichtst bij de Max Verstappen Tribune (Grand Prix 1). Neem water mee, de wandeling is in de zon.'
+    }
+  ];
+
+  /* ---------- Circuit Route Terug (Hungaroring \u2192 Hotel) ---------- */
+  var CIRCUIT_ROUTE_RETURN = [
+    {
+      id: 'cr-shuttle',
+      icon: '\uD83D\uDE8C',
+      title: 'Shuttle naar G\u00F6d\u00F6ll\u0151',
+      subtitle: 'Gate 3 \u2192 G\u00F6d\u00F6ll\u0151 station',
+      duration: '~15-20 min',
+      distance: null,
+      details: 'Na de sessie loopt iedereen naar Gate 3 voor de gratis shuttlebussen. Deze brengen je naar G\u00F6d\u00F6ll\u0151 H\u00C9V station.',
+      tips: '\u26A0\uFE0F Na de race: verwacht 30-60 min wachtrij. Na de kwalificatie is het veel rustiger. Tip: blijf nog even zitten na de race, de eerste golf is het drukst.'
+    },
+    {
+      id: 'cr-s80',
+      icon: '\uD83D\uDE83',
+      title: 'S80 trein naar Keleti',
+      subtitle: 'G\u00F6d\u00F6ll\u0151 \u2192 Budapest Keleti',
+      duration: '~35 min',
+      distance: null,
+      details: 'De S80 trein rijdt direct van G\u00F6d\u00F6ll\u0151 naar Budapest Keleti. Alternatief: H\u00C9V H8 naar \u00D6rs vez\u00E9r tere + M2 metro.',
+      tips: 'De S80 is sneller dan de H\u00C9V + M2 combo. Rijdt tot ~23:00. Check vertrektijden op elvira.mav-start.hu of de M\u00C1V app.'
+    }
+  ];
+
+  /* ---------- Circuit Regels & Veiligheid ---------- */
+  var CIRCUIT_RULES = [
+    {
+      icon: '\uD83D\uDCA7',
+      title: 'Vloeistoffen max 1 liter',
+      text: 'Je mag geen containers groter dan 1 liter meenemen. Kleine flesjes water zijn toegestaan. Water is te koop op het circuit (duur).'
+    },
+    {
+      icon: '\uD83D\uDCB3',
+      title: 'Cashless betalen',
+      text: 'Het circuit is volledig cashless. Alleen kaartbetalingen geaccepteerd (contactloos werkt het snelst). Geen contant geld nodig.'
+    },
+    {
+      icon: '\u26A0\uFE0F',
+      title: 'Pas op voor honey traps',
+      text: 'In het uitgaansleven van Budapest zijn er bars die extreem hoge rekeningen presenteren (soms \u20AC500+). Ga alleen naar plekken met duidelijke menu\'s en prijzen.'
+    },
+    {
+      icon: '\uD83D\uDE95',
+      title: 'Alleen offici\u00EBle taxi\'s',
+      text: 'Gebruik alleen de F\u0150TAXI app of bel +36 1 222 2222. Stap nooit in bij onoffici\u00EBle taxi\'s die je aanspreken \u2014 die rekenen veel te veel.'
+    }
+  ];
+
+  /* ---------- Donderdag Sightseeing ---------- */
+  var THURSDAY_ACTIVITIES = [
+    {
+      id: 'thurs-sightseeing',
+      time: '10:00',
+      endTime: '13:00',
+      title: 'Sightseeing Budapest',
+      icon: '\uD83C\uDFDB\uFE0F',
+      description: 'Parlement, Vissersbastion, Buda Castle, Kettingbrug. Loop of neem tram 2 langs de Donau.',
+      tip: 'Start bij het Parlement (Kossuth t\u00E9r, M2 metro) en loop zuidwaarts.'
+    },
+    {
+      id: 'thurs-lunch',
+      time: '13:00',
+      endTime: '14:30',
+      title: 'Lunch',
+      icon: '\uD83C\uDF5D',
+      description: 'Probeer de Hongaarse keuken: goulash, l\u00E1ngos, of chimney cake. Centrale markthal is een aanrader.',
+      tip: 'Nagymecs\u00E1rnok (Centrale Markthal) bij Fov\u00E1m t\u00E9r \u2014 fantastisch voor streetfood.'
+    },
+    {
+      id: 'thurs-bath',
+      time: '15:00',
+      endTime: '18:00',
+      title: 'Thermaalbad',
+      icon: '\u2668\uFE0F',
+      description: 'Sz\u00E9chenyi of Gell\u00E9rt thermaalbad. Ontspan na de reis!',
+      tip: 'Sz\u00E9chenyi is groter en beter voor groepen. Koop tickets online \u2014 scheelt wachtrij. Zwembroek verplicht (geen shorts).'
+    },
+    {
+      id: 'thurs-evening',
+      time: '20:00',
+      endTime: '23:00',
+      title: 'Ruin bars & avondeten',
+      icon: '\uD83C\uDF7B',
+      description: 'Bezoek de beroemde ruin bars in het Joodse Kwartier (district VII). Szimpla Kert is de bekendste.',
+      tip: 'Het hotel ligt in district VII \u2014 alles is op loopafstand! Reserveer een restaurant of eet bij een ruin bar.'
+    }
+  ];
+
+  /* ---------- Financi\u00EBn Configuratie ---------- */
+  var FINANCES_CONFIG = {
+    fixedCosts: [
+      { label: 'Hotel (4 nachten)', amount: 1055.74, paid: true, icon: '\uD83C\uDFE8' },
+      { label: 'Tickets (4x)', amount: 1156.00, paid: true, icon: '\uD83C\uDFAB' }
+    ],
+    sharedCosts: [
+      { label: 'Vignet Oostenrijk (10-daags)', amount: 11.50, icon: '\uD83C\uDDE6\uD83C\uDDF9' },
+      { label: 'Vignet Hongarije (10-daags)', amount: 5.20, icon: '\uD83C\uDDED\uD83C\uDDFA' },
+      { label: 'Laden onderweg (geschat)', amount: 80.00, icon: '\u26A1' },
+      { label: 'Parkeren Budapest (4 dagen)', amount: 40.00, icon: '\uD83C\uDD7F\uFE0F' }
+    ]
+  };
+
   // Expose to global scope
   window.TripData = {
     RACE_SESSIONS: RACE_SESSIONS,
@@ -214,6 +450,13 @@
     DEPARTURE_BUFFERS: DEPARTURE_BUFFERS,
     TRAVEL_TIPS: TRAVEL_TIPS,
     F1_DRIVERS: F1_DRIVERS,
-    PREDICTION_SCORING: PREDICTION_SCORING
+    PREDICTION_SCORING: PREDICTION_SCORING,
+    CAR_INFO: CAR_INFO,
+    ROADTRIP_LEGS: ROADTRIP_LEGS,
+    CIRCUIT_ROUTE_TO: CIRCUIT_ROUTE_TO,
+    CIRCUIT_ROUTE_RETURN: CIRCUIT_ROUTE_RETURN,
+    CIRCUIT_RULES: CIRCUIT_RULES,
+    THURSDAY_ACTIVITIES: THURSDAY_ACTIVITIES,
+    FINANCES_CONFIG: FINANCES_CONFIG
   };
 })();

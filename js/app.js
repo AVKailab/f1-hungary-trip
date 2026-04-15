@@ -63,10 +63,10 @@
     switch (tab) {
       case 'tab-dashboard': renderDashboard(); break;
       case 'tab-schedule': renderSchedule(); break;
-      case 'tab-info': renderInfo(); break;
+      case 'tab-roadtrip': renderRoadtrip(); break;
       case 'tab-results': renderResults(); break;
+      case 'tab-circuit': renderCircuit(); break;
       case 'tab-group': renderGroup(); break;
-      case 'tab-reis': renderReis(); break;
     }
   }
 
@@ -76,7 +76,7 @@
     countdownInterval = setInterval(function () {
       updateDashboardCountdowns();
       updateScheduleCountdowns();
-      updateReisCountdowns();
+      updateRoadtripCountdowns();
     }, 1000);
   }
 
@@ -130,6 +130,31 @@
     });
   }
 
+  function updateRoadtripCountdowns() {
+    if (getActiveTab() !== 'tab-roadtrip') return;
+
+    var sessions = window.TripData.RACE_SESSIONS;
+    var buffers = window.TripData.DEPARTURE_BUFFERS;
+
+    sessions.forEach(function (session) {
+      var buffer = buffers[session.id] || 90;
+      var sessionStart = new Date(session.date).getTime();
+      var departureTime = new Date(sessionStart - buffer * 60000);
+
+      var countdownEl = document.getElementById('departure-countdown-' + session.id);
+      if (!countdownEl) return;
+
+      var now = Date.now();
+      if (now >= sessionStart) {
+        countdownEl.innerHTML = '<span class="text-muted">Afgelopen</span>';
+      } else if (now >= departureTime.getTime()) {
+        countdownEl.innerHTML = '<span style="color:var(--f1-red);font-weight:700">Nu vertrekken!</span>';
+      } else {
+        countdownEl.innerHTML = window.TripCountdown.formatMiniCountdown(departureTime.toISOString());
+      }
+    });
+  }
+
   /* ---------- Dashboard ---------- */
   function renderDashboard() {
     var container = document.getElementById('dashboard-content');
@@ -164,11 +189,17 @@
     }
 
     // Quick cards
+    var car = window.TripData.CAR_INFO;
     html += '<div class="quick-cards">';
     html += '<div class="quick-card">';
     html += '<div class="quick-card-icon">\uD83C\uDFE8</div>';
     html += '<div class="quick-card-value">' + (appData.hotel.name || 'Niet ingesteld') + '</div>';
     html += '<div class="quick-card-label">Hotel</div>';
+    html += '</div>';
+    html += '<div class="quick-card">';
+    html += '<div class="quick-card-icon">\uD83D\uDE97</div>';
+    html += '<div class="quick-card-value">' + car.model + '</div>';
+    html += '<div class="quick-card-label">' + car.range + ' km range</div>';
     html += '</div>';
     html += '<div class="quick-card">';
     html += '<div class="quick-card-icon">\uD83D\uDC65</div>';
@@ -283,10 +314,30 @@
   function renderSchedule() {
     var container = document.getElementById('schedule-content');
     var sessions = window.TripData.RACE_SESSIONS;
+    var activities = window.TripData.THURSDAY_ACTIVITIES;
 
     var html = '';
     html += '<div class="timezone-note">\u23F0 Alle tijden in CEST (UTC+2) \u2014 Lokale tijd Budapest</div>';
 
+    // Thursday Sightseeing
+    html += '<div class="day-group">';
+    html += '<div class="day-header">Donderdag \u2014 Sightseeing</div>';
+    activities.forEach(function (act) {
+      html += '<div class="session-card session-card--activity">';
+      html += '<div class="session-status-dot activity"></div>';
+      html += '<div class="session-info">';
+      html += '<div class="session-name">' + act.icon + ' ' + act.title + '</div>';
+      html += '<div class="session-time">' + act.time + ' \u2013 ' + act.endTime + '</div>';
+      html += '<div class="session-description">' + act.description + '</div>';
+      if (act.tip) {
+        html += '<div class="session-tip">\uD83D\uDCA1 ' + act.tip + '</div>';
+      }
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    // F1 Sessions (Fri/Sat/Sun)
     var currentDay = '';
     sessions.forEach(function (session) {
       if (session.day !== currentDay) {
@@ -320,28 +371,260 @@
     container.innerHTML = html;
   }
 
-  /* ---------- Info Tab ---------- */
-  function renderInfo() {
-    var container = document.getElementById('info-content');
+  /* ---------- Roadtrip Tab (was: Reis) ---------- */
+  function renderRoadtrip() {
+    var container = document.getElementById('roadtrip-content');
+    if (!container) return;
+    var html = '';
+    var car = window.TripData.CAR_INFO;
+    var pad = window.TripCountdown.pad;
+
+    html += '<div class="section-title">\uD83D\uDE97 Roadtrip</div>';
+    html += '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:var(--space-md)">Nederland \u2192 Budapest \u2022 ~1.300 km</p>';
+
+    // Car info banner
+    html += '<div class="car-info-banner">';
+    html += '<div class="car-info-icon">\u26A1</div>';
+    html += '<div class="car-info-body">';
+    html += '<div class="car-info-model">' + car.model + '</div>';
+    html += '<div class="car-info-meta">';
+    html += '<span>\uD83D\uDD0B ' + car.range + ' km range</span>';
+    html += '<span>\u2195\uFE0F Max ' + car.maxHeight + '</span>';
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Route summary bar
+    html += '<div class="route-summary-bar">';
+    html += '<span>\uD83C\uDDF3\uD83C\uDDF1 Nederland</span>';
+    html += '<span class="route-arrow">\u2192</span>';
+    html += '<span>\uD83C\uDDED\uD83C\uDDFA Budapest</span>';
+    html += '<span class="route-duration">~10-12 uur</span>';
+    html += '</div>';
+
+    // Vertical timeline — roadtrip legs
+    var legs = window.TripData.ROADTRIP_LEGS;
+    html += '<div class="route-timeline">';
+    legs.forEach(function (leg, index) {
+      var isLast = index === legs.length - 1;
+      var dotClass = 'route-step-dot';
+      if (leg.type === 'charge') dotClass += ' route-step-dot--charge';
+      else if (leg.type === 'overnight') dotClass += ' route-step-dot--overnight';
+      else if (leg.type === 'arrive') dotClass += ' route-step-dot--arrive';
+
+      html += '<div class="route-step' + (isLast ? ' route-step--last' : '') + '" id="route-step-' + leg.id + '">';
+
+      // Marker column (dot + line)
+      html += '<div class="route-step-marker">';
+      html += '<div class="' + dotClass + '"></div>';
+      if (!isLast) html += '<div class="route-step-line"></div>';
+      html += '</div>';
+
+      // Content column
+      html += '<div class="route-step-content">';
+      html += '<button class="route-step-header" onclick="window.App.toggleRouteStep(\'' + leg.id + '\')">';
+      html += '<div class="route-step-icon">' + leg.icon + '</div>';
+      html += '<div class="route-step-info">';
+      html += '<div class="route-step-title">' + leg.title + '</div>';
+      html += '<div class="route-step-subtitle">' + leg.subtitle + '</div>';
+      html += '</div>';
+      html += '<div class="route-step-meta">';
+      if (leg.duration) html += '<span class="route-step-duration">' + leg.duration + '</span>';
+      html += '<span class="route-step-chevron">\u25BC</span>';
+      html += '</div>';
+      html += '</button>';
+
+      // Expandable details
+      html += '<div class="route-step-details" id="route-details-' + leg.id + '">';
+      if (leg.distance) {
+        html += '<div class="route-detail-row"><strong>Afstand:</strong> ' + leg.distance + '</div>';
+      }
+      html += '<div class="route-detail-row">' + leg.details + '</div>';
+      html += '<div class="route-step-tip">\uD83D\uDCA1 ' + leg.tips + '</div>';
+      html += '</div>';
+
+      html += '</div>'; // route-step-content
+      html += '</div>'; // route-step
+    });
+    html += '</div>';
+
+    // Departure calculator
+    html += renderAccordion('departures', '\u23F0 Vertrektijden Circuit', renderDepartureContent(), false);
+
+    // Travel tips accordion
+    html += renderAccordion('reistips', '\uD83D\uDCA1 Reistips', renderTravelTipsContent(), false);
+
+    container.innerHTML = html;
+  }
+
+  function renderDepartureContent() {
+    var html = '';
+    var pad = window.TripCountdown.pad;
+    var sessions = window.TripData.RACE_SESSIONS;
+    var buffers = window.TripData.DEPARTURE_BUFFERS;
+
+    html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-sm)">Aanbevolen vertrektijd vanaf het hotel per sessie</p>';
+
+    sessions.forEach(function (session) {
+      var buffer = buffers[session.id] || 90;
+      var sessionStart = new Date(session.date);
+      var departureTime = new Date(sessionStart.getTime() - buffer * 60000);
+      var status = window.TripCountdown.getSessionStatus(session);
+
+      // Format times in CEST (UTC+2)
+      var depH = pad(departureTime.getUTCHours() + 2);
+      var depM = pad(departureTime.getUTCMinutes());
+      var sessH = pad(sessionStart.getUTCHours() + 2);
+      var sessM = pad(sessionStart.getUTCMinutes());
+
+      html += '<div class="departure-card' + (session.id === 'race' ? ' departure-card--race' : '') + '">';
+
+      // Session info
+      html += '<div class="departure-session">';
+      html += '<div class="departure-session-name">' + session.shortName + '</div>';
+      html += '<div class="departure-session-day">' + session.day + '</div>';
+      html += '</div>';
+
+      // Times: departure → session
+      html += '<div class="departure-times">';
+      html += '<div class="departure-leave">';
+      html += '<div class="departure-leave-label">Vertrek</div>';
+      html += '<div class="departure-leave-time">' + depH + ':' + depM + '</div>';
+      html += '</div>';
+      html += '<div class="departure-arrow">\u2192</div>';
+      html += '<div class="departure-session-start">';
+      html += '<div class="departure-start-label">Sessie</div>';
+      html += '<div class="departure-start-time">' + sessH + ':' + sessM + '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      // Countdown
+      html += '<div class="departure-countdown" id="departure-countdown-' + session.id + '">';
+      if (status === 'completed') {
+        html += '<span class="text-muted">Afgelopen</span>';
+      } else {
+        html += window.TripCountdown.formatMiniCountdown(departureTime.toISOString());
+      }
+      html += '</div>';
+
+      html += '</div>';
+    });
+
+    return html;
+  }
+
+  function renderTravelTipsContent() {
+    var tips = window.TripData.TRAVEL_TIPS;
+    var html = '';
+    tips.forEach(function (tip) {
+      html += '<div class="travel-tip-card">';
+      html += '<div class="travel-tip-icon">' + tip.icon + '</div>';
+      html += '<div class="travel-tip-body">';
+      html += '<div class="travel-tip-title">' + tip.title + '</div>';
+      html += '<div class="travel-tip-text">' + tip.text + '</div>';
+      html += '</div>';
+      html += '</div>';
+    });
+    return html;
+  }
+
+  /* ---------- Circuit Tab (was: Info) ---------- */
+  function renderCircuit() {
+    var container = document.getElementById('circuit-content');
     var html = '';
 
+    html += '<div class="section-title">\uD83C\uDFCE\uFE0F Circuit & Logistiek</div>';
+
+    // Route heen (Gate 6) accordion
+    html += renderAccordion('circuit-heen', '\uD83D\uDEB6 Route Heen \u2192 Gate 6', renderCircuitRouteContent(window.TripData.CIRCUIT_ROUTE_TO, 'Hotel \u2192 Hungaroring Gate 6', '~50 min'), true);
+
+    // Route terug (Gate 3) accordion
+    html += renderAccordion('circuit-terug', '\uD83D\uDD04 Route Terug \u2192 Gate 3', renderCircuitRouteContent(window.TripData.CIRCUIT_ROUTE_RETURN, 'Hungaroring Gate 3 \u2192 Hotel', '~55 min'), false);
+
+    // Regels & veiligheid accordion
+    html += renderAccordion('circuit-regels', '\u26A0\uFE0F Regels & Veiligheid', renderRulesContent(), false);
+
     // Tickets accordion
-    html += renderAccordion('tickets', '\uD83C\uDFAB Tickets', renderTicketsContent(), true);
+    html += renderAccordion('tickets', '\uD83C\uDFAB Tickets', renderTicketsContent(), false);
 
     // Hotel accordion
     html += renderAccordion('hotel', '\uD83C\uDFE8 Hotel', renderHotelContent(), false);
 
     // Transport accordion
-    html += renderAccordion('transport', '\uD83D\uDE8C Transport', renderTransportContent(), false);
+    html += renderAccordion('transport', '\uD83D\uDE8C Transport Opties', renderTransportContent(), false);
 
     // Dining accordion
     html += renderAccordion('dining', '\uD83C\uDF7D\uFE0F Eten', renderDiningContent(), false);
 
     container.innerHTML = html;
-    attachInfoEventListeners();
+    attachCircuitEventListeners();
     attachTicketListeners();
   }
 
+  function renderCircuitRouteContent(legs, label, totalDuration) {
+    var html = '';
+    html += '<div class="route-summary-bar">';
+    html += '<span>' + label.split(' \u2192 ')[0] + '</span>';
+    html += '<span class="route-arrow">\u2192</span>';
+    html += '<span>' + label.split(' \u2192 ')[1] + '</span>';
+    html += '<span class="route-duration">' + totalDuration + '</span>';
+    html += '</div>';
+
+    html += '<div class="route-timeline">';
+    legs.forEach(function (leg, index) {
+      var isLast = index === legs.length - 1;
+      html += '<div class="route-step' + (isLast ? ' route-step--last' : '') + '" id="route-step-' + leg.id + '">';
+
+      html += '<div class="route-step-marker">';
+      html += '<div class="route-step-dot"></div>';
+      if (!isLast) html += '<div class="route-step-line"></div>';
+      html += '</div>';
+
+      html += '<div class="route-step-content">';
+      html += '<button class="route-step-header" onclick="window.App.toggleRouteStep(\'' + leg.id + '\')">';
+      html += '<div class="route-step-icon">' + leg.icon + '</div>';
+      html += '<div class="route-step-info">';
+      html += '<div class="route-step-title">' + leg.title + '</div>';
+      html += '<div class="route-step-subtitle">' + leg.subtitle + '</div>';
+      html += '</div>';
+      html += '<div class="route-step-meta">';
+      if (leg.duration) html += '<span class="route-step-duration">' + leg.duration + '</span>';
+      html += '<span class="route-step-chevron">\u25BC</span>';
+      html += '</div>';
+      html += '</button>';
+
+      html += '<div class="route-step-details" id="route-details-' + leg.id + '">';
+      if (leg.distance) {
+        html += '<div class="route-detail-row"><strong>Afstand:</strong> ' + leg.distance + '</div>';
+      }
+      html += '<div class="route-detail-row">' + leg.details + '</div>';
+      html += '<div class="route-step-tip">\uD83D\uDCA1 ' + leg.tips + '</div>';
+      html += '</div>';
+
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    return html;
+  }
+
+  function renderRulesContent() {
+    var rules = window.TripData.CIRCUIT_RULES;
+    var html = '';
+    rules.forEach(function (rule) {
+      html += '<div class="travel-tip-card">';
+      html += '<div class="travel-tip-icon">' + rule.icon + '</div>';
+      html += '<div class="travel-tip-body">';
+      html += '<div class="travel-tip-title">' + rule.title + '</div>';
+      html += '<div class="travel-tip-text">' + rule.text + '</div>';
+      html += '</div>';
+      html += '</div>';
+    });
+    return html;
+  }
+
+  /* ---------- Accordion Helper ---------- */
   function renderAccordion(id, title, content, openByDefault) {
     return '<div class="accordion-section' + (openByDefault ? ' open' : '') + '" id="accordion-' + id + '">' +
       '<button class="accordion-header" onclick="window.App.toggleAccordion(\'' + id + '\')">' +
@@ -352,6 +635,7 @@
       '</div>';
   }
 
+  /* ---------- Tickets Content ---------- */
   function renderTicketsContent() {
     var tickets = appData.tickets || [];
     var html = '';
@@ -414,7 +698,6 @@
           var dataUrl = ev.target.result;
 
           if (!isPdf) {
-            // Resize image to save localStorage space
             resizeImage(dataUrl, 1200, function (resized) {
               appData = window.TripStorage.loadData();
               if (!appData.tickets) appData.tickets = [];
@@ -425,7 +708,7 @@
               });
               window.TripStorage.saveData(appData);
               processed++;
-              if (processed === files.length) renderInfo();
+              if (processed === files.length) renderCircuit();
             });
           } else {
             appData = window.TripStorage.loadData();
@@ -437,13 +720,12 @@
             });
             window.TripStorage.saveData(appData);
             processed++;
-            if (processed === files.length) renderInfo();
+            if (processed === files.length) renderCircuit();
           }
         };
         reader.readAsDataURL(file);
       });
 
-      // Reset input so same file can be re-uploaded
       uploadInput.value = '';
     });
   }
@@ -467,6 +749,7 @@
     img.src = dataUrl;
   }
 
+  /* ---------- Hotel Content ---------- */
   function renderHotelContent() {
     var h = appData.hotel;
     var html = '';
@@ -504,6 +787,7 @@
     return html;
   }
 
+  /* ---------- Transport Content ---------- */
   function renderTransportContent() {
     var options = window.TripData.TRANSPORT_OPTIONS;
     var html = '';
@@ -531,6 +815,7 @@
     return html;
   }
 
+  /* ---------- Dining Content ---------- */
   function renderDiningContent() {
     var dates = window.TripData.TRIP_DATES;
     var dayNames = window.TripData.DAY_NAMES;
@@ -586,14 +871,14 @@
     return html;
   }
 
-  function attachInfoEventListeners() {
+  /* ---------- Circuit Event Listeners ---------- */
+  function attachCircuitEventListeners() {
     // Hotel fields auto-save
     var hotelFields = ['hotel-name', 'hotel-address', 'hotel-checkin', 'hotel-checkout', 'hotel-notes'];
     hotelFields.forEach(function (fieldId) {
       var el = document.getElementById(fieldId);
       if (el) {
         el.addEventListener('input', debouncedSave(function () {
-          // Reload to preserve lat/lng set via map
           appData = window.TripStorage.loadData();
           appData.hotel.name = document.getElementById('hotel-name').value;
           appData.hotel.address = document.getElementById('hotel-address').value;
@@ -727,7 +1012,7 @@
       }
       html += '</div>'; // header
 
-      /* Podium (top 3) - always visible for completed races */
+      /* Podium (top 3) */
       if (results && results.length >= 3) {
         html += '<div class="results-podium">';
         for (var p = 0; p < 3; p++) {
@@ -744,7 +1029,7 @@
         }
         html += '</div>';
 
-        /* Full results (top 10) - hidden by default */
+        /* Full results (top 10) */
         if (results.length > 3) {
           html += '<div class="results-full" id="results-full-' + race.round + '" style="display:none">';
           var showCount = Math.min(results.length, 10);
@@ -785,7 +1070,6 @@
     var html = '';
 
     html += '<div class="section-title">\uD83D\uDC65 Onze Groep</div>';
-
 
     var tickets = window.TripData.TICKETS;
 
@@ -844,6 +1128,9 @@
     });
     html += '</div>';
 
+    // Financial overview accordion
+    html += renderAccordion('finances', '\uD83D\uDCB0 Financieel Overzicht', renderFinancesContent(), false);
+
     container.innerHTML = html;
 
     // Attach input listeners
@@ -876,7 +1163,6 @@
           var isPdf = file.type === 'application/pdf';
 
           if (isPdf) {
-            // Store PDF directly
             appData = window.TripStorage.loadData();
             if (appData.group[personIdx]) {
               appData.group[personIdx].ticketImage = dataUrl;
@@ -899,183 +1185,93 @@
         reader.readAsDataURL(file);
       });
     });
+
+    // Attach financial input listeners
+    attachFinanceListeners();
   }
 
-  /* ---------- Reis (Travel Planner) ---------- */
-  function updateReisCountdowns() {
-    if (getActiveTab() !== 'tab-reis') return;
-
-    var sessions = window.TripData.RACE_SESSIONS;
-    var buffers = window.TripData.DEPARTURE_BUFFERS;
-
-    sessions.forEach(function (session) {
-      var buffer = buffers[session.id] || 90;
-      var sessionStart = new Date(session.date).getTime();
-      var departureTime = new Date(sessionStart - buffer * 60000);
-
-      var countdownEl = document.getElementById('departure-countdown-' + session.id);
-      if (!countdownEl) return;
-
-      var now = Date.now();
-      if (now >= sessionStart) {
-        countdownEl.innerHTML = '<span class="text-muted">Afgelopen</span>';
-      } else if (now >= departureTime.getTime()) {
-        countdownEl.innerHTML = '<span style="color:var(--f1-red);font-weight:700">Nu vertrekken!</span>';
-      } else {
-        countdownEl.innerHTML = window.TripCountdown.formatMiniCountdown(departureTime.toISOString());
-      }
-    });
-  }
-
-  function renderReis() {
-    var container = document.getElementById('reis-content');
-    if (!container) return;
+  /* ---------- Finances ---------- */
+  function renderFinancesContent() {
+    var config = window.TripData.FINANCES_CONFIG;
+    var finances = appData.finances || { costs: [], paidItems: {} };
+    var groupSize = Math.max(appData.group.length, 1);
     var html = '';
-    var pad = window.TripCountdown.pad;
 
-    html += '<div class="section-title">\uD83D\uDE86 Reisplanner</div>';
-    html += '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:var(--space-md)">Hotel \u2192 Hungaroring via openbaar vervoer</p>';
+    // Fixed costs (already paid)
+    html += '<div class="finance-section-label">\u2705 Vaste kosten (betaald)</div>';
+    var fixedTotal = 0;
+    config.fixedCosts.forEach(function (cost) {
+      fixedTotal += cost.amount;
+      html += '<div class="finance-row finance-row--fixed">';
+      html += '<span class="finance-row-icon">' + cost.icon + '</span>';
+      html += '<span class="finance-row-label">' + cost.label + '</span>';
+      html += '<span class="finance-row-amount">\u20AC' + cost.amount.toFixed(2) + '</span>';
+      html += '</div>';
+    });
 
-    // Route overview bar
-    html += '<div class="route-summary-bar">';
-    html += '<span>\uD83D\uDCCD Garay t\u00E9r 20</span>';
-    html += '<span class="route-arrow">\u2192</span>';
-    html += '<span>\uD83C\uDFC1 Hungaroring</span>';
-    html += '<span class="route-duration">~50-60 min</span>';
+    // Shared costs (estimated)
+    html += '<div class="finance-section-label" style="margin-top:16px">\uD83D\uDE97 Gedeelde kosten (geschat)</div>';
+    var sharedTotal = 0;
+    config.sharedCosts.forEach(function (cost) {
+      sharedTotal += cost.amount;
+      html += '<div class="finance-row">';
+      html += '<span class="finance-row-icon">' + cost.icon + '</span>';
+      html += '<span class="finance-row-label">' + cost.label + '</span>';
+      html += '<span class="finance-row-amount">\u20AC' + cost.amount.toFixed(2) + '</span>';
+      html += '</div>';
+    });
+
+    // Custom costs
+    if (finances.costs.length > 0) {
+      html += '<div class="finance-section-label" style="margin-top:16px">\u270F\uFE0F Extra kosten</div>';
+      finances.costs.forEach(function (cost, i) {
+        sharedTotal += (parseFloat(cost.amount) || 0);
+        html += '<div class="finance-row">';
+        html += '<span class="finance-row-icon">\uD83D\uDCCC</span>';
+        html += '<span class="finance-row-label">' + escapeHTML(cost.label) + '</span>';
+        html += '<span class="finance-row-amount">\u20AC' + (parseFloat(cost.amount) || 0).toFixed(2) + '</span>';
+        html += '<button class="btn-icon finance-remove-btn" onclick="window.App.removeCustomCost(' + i + ')" title="Verwijderen">\u2715</button>';
+        html += '</div>';
+      });
+    }
+
+    // Add custom cost form
+    html += '<div class="finance-add-form">';
+    html += '<div style="display:flex;gap:8px;margin-top:12px">';
+    html += '<input type="text" class="form-input" id="finance-new-label" placeholder="Omschrijving" style="flex:2">';
+    html += '<input type="number" class="form-input" id="finance-new-amount" placeholder="\u20AC" step="0.01" style="flex:1">';
+    html += '<button class="btn-secondary" onclick="window.App.addCustomCost()" style="white-space:nowrap">+</button>';
+    html += '</div>';
     html += '</div>';
 
-    // Vertical timeline
-    var legs = window.TripData.ROUTE_LEGS;
-    html += '<div class="route-timeline">';
-    legs.forEach(function (leg, index) {
-      var isLast = index === legs.length - 1;
-      html += '<div class="route-step' + (isLast ? ' route-step--last' : '') + '" id="route-step-' + leg.id + '">';
+    // Totals
+    var grandTotal = fixedTotal + sharedTotal;
+    var perPerson = grandTotal / groupSize;
 
-      // Marker column (dot + line)
-      html += '<div class="route-step-marker">';
-      html += '<div class="route-step-dot"></div>';
-      if (!isLast) html += '<div class="route-step-line"></div>';
-      html += '</div>';
-
-      // Content column
-      html += '<div class="route-step-content">';
-      html += '<button class="route-step-header" onclick="window.App.toggleRouteStep(\'' + leg.id + '\')">';
-      html += '<div class="route-step-icon">' + leg.icon + '</div>';
-      html += '<div class="route-step-info">';
-      html += '<div class="route-step-title">' + leg.title + '</div>';
-      html += '<div class="route-step-subtitle">' + leg.subtitle + '</div>';
-      html += '</div>';
-      html += '<div class="route-step-meta">';
-      html += '<span class="route-step-duration">' + leg.duration + '</span>';
-      html += '<span class="route-step-chevron">\u25BC</span>';
-      html += '</div>';
-      html += '</button>';
-
-      // Expandable details
-      html += '<div class="route-step-details" id="route-details-' + leg.id + '">';
-      if (leg.distance) {
-        html += '<div class="route-detail-row"><strong>Afstand:</strong> ' + leg.distance + '</div>';
-      }
-      html += '<div class="route-detail-row">' + leg.details + '</div>';
-      html += '<div class="route-step-tip">\uD83D\uDCA1 ' + leg.tips + '</div>';
-      html += '</div>';
-
-      html += '</div>'; // route-step-content
-      html += '</div>'; // route-step
-    });
+    html += '<div class="finance-total">';
+    html += '<div class="finance-total-row">';
+    html += '<span>Vaste kosten</span>';
+    html += '<span>\u20AC' + fixedTotal.toFixed(2) + '</span>';
+    html += '</div>';
+    html += '<div class="finance-total-row">';
+    html += '<span>Gedeelde kosten</span>';
+    html += '<span>\u20AC' + sharedTotal.toFixed(2) + '</span>';
+    html += '</div>';
+    html += '<div class="finance-total-row finance-total-row--grand">';
+    html += '<span>Totaal</span>';
+    html += '<span>\u20AC' + grandTotal.toFixed(2) + '</span>';
+    html += '</div>';
+    html += '<div class="finance-total-row finance-total-row--pp">';
+    html += '<span>Per persoon (' + groupSize + ')</span>';
+    html += '<span>\u20AC' + perPerson.toFixed(2) + '</span>';
+    html += '</div>';
     html += '</div>';
 
-    // Departure calculator
-    html += '<div class="section-title mt-md">\u23F0 Vertrektijden</div>';
-    html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-sm)">Aanbevolen vertrektijd vanaf het hotel per sessie</p>';
-
-    var sessions = window.TripData.RACE_SESSIONS;
-    var buffers = window.TripData.DEPARTURE_BUFFERS;
-
-    sessions.forEach(function (session) {
-      var buffer = buffers[session.id] || 90;
-      var sessionStart = new Date(session.date);
-      var departureTime = new Date(sessionStart.getTime() - buffer * 60000);
-      var status = window.TripCountdown.getSessionStatus(session);
-
-      // Format times in CEST (UTC+2)
-      var depH = pad(departureTime.getUTCHours() + 2);
-      var depM = pad(departureTime.getUTCMinutes());
-      var sessH = pad(sessionStart.getUTCHours() + 2);
-      var sessM = pad(sessionStart.getUTCMinutes());
-
-      html += '<div class="departure-card' + (session.id === 'race' ? ' departure-card--race' : '') + '">';
-
-      // Session info
-      html += '<div class="departure-session">';
-      html += '<div class="departure-session-name">' + session.shortName + '</div>';
-      html += '<div class="departure-session-day">' + session.day + '</div>';
-      html += '</div>';
-
-      // Times: departure → session
-      html += '<div class="departure-times">';
-      html += '<div class="departure-leave">';
-      html += '<div class="departure-leave-label">Vertrek</div>';
-      html += '<div class="departure-leave-time">' + depH + ':' + depM + '</div>';
-      html += '</div>';
-      html += '<div class="departure-arrow">\u2192</div>';
-      html += '<div class="departure-session-start">';
-      html += '<div class="departure-start-label">Sessie</div>';
-      html += '<div class="departure-start-time">' + sessH + ':' + sessM + '</div>';
-      html += '</div>';
-      html += '</div>';
-
-      // Countdown
-      html += '<div class="departure-countdown" id="departure-countdown-' + session.id + '">';
-      if (status === 'completed') {
-        html += '<span class="text-muted">Afgelopen</span>';
-      } else {
-        html += window.TripCountdown.formatMiniCountdown(departureTime.toISOString());
-      }
-      html += '</div>';
-
-      html += '</div>';
-    });
-
-    // Travel tips accordion
-    html += renderAccordion('reistips', '\uD83D\uDCA1 Reistips', renderTravelTipsContent(), false);
-
-    // Return journey accordion
-    html += renderAccordion('terugreis', '\uD83D\uDD04 Terugreis', renderReturnJourneyContent(), false);
-
-    container.innerHTML = html;
-  }
-
-  function renderTravelTipsContent() {
-    var tips = window.TripData.TRAVEL_TIPS;
-    var html = '';
-    tips.forEach(function (tip) {
-      html += '<div class="travel-tip-card">';
-      html += '<div class="travel-tip-icon">' + tip.icon + '</div>';
-      html += '<div class="travel-tip-body">';
-      html += '<div class="travel-tip-title">' + tip.title + '</div>';
-      html += '<div class="travel-tip-text">' + tip.text + '</div>';
-      html += '</div>';
-      html += '</div>';
-    });
     return html;
   }
 
-  function renderReturnJourneyContent() {
-    var html = '';
-    html += '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6">';
-    html += '<p style="margin-bottom:12px">De terugreis is dezelfde route in omgekeerde volgorde:</p>';
-    html += '<div class="transport-card">';
-    html += '<div class="transport-header">';
-    html += '<span class="transport-icon">\uD83D\uDE8C</span>';
-    html += '<span class="transport-mode">Shuttle \u2192 H\u00C9V \u2192 M2 \u2192 Lopen</span>';
-    html += '</div>';
-    html += '<div class="transport-description">Hungaroring Gate 3 \u2192 Kerepes (shuttle) \u2192 \u00D6rs vez\u00E9r tere (H\u00C9V) \u2192 Keleti (M2) \u2192 Hotel</div>';
-    html += '</div>';
-    html += '<div class="transport-tip">\u26A0\uFE0F Na de race: verwacht lange wachtrijen bij de shuttle (30-60 min). De H\u00C9V rijdt tot ~23:00. Overweeg om 20 min naar Mogyor\u00F3d dorp te lopen voor een taxi als alternatief.</div>';
-    html += '<div class="transport-tip" style="margin-top:8px">\uD83D\uDCA1 Tip: Na de kwalificatie is het veel rustiger. Shuttles rijden vlot en je bent binnen een uur terug.</div>';
-    html += '</div>';
-    return html;
+  function attachFinanceListeners() {
+    // No persistent input listeners needed; custom costs are added via button
   }
 
   /* ---------- Prediction Game ---------- */
@@ -1203,7 +1399,6 @@
       var ticket = appData.tickets && appData.tickets[index];
       if (!ticket) return;
 
-      // Create fullscreen overlay
       var overlay = document.createElement('div');
       overlay.className = 'ticket-overlay';
       overlay.onclick = function (e) {
@@ -1213,7 +1408,6 @@
       var inner = document.createElement('div');
       inner.className = 'ticket-overlay-inner';
 
-      // Close button
       var closeBtn = document.createElement('button');
       closeBtn.className = 'ticket-overlay-close';
       closeBtn.textContent = '\u2715';
@@ -1242,7 +1436,7 @@
       if (appData.tickets) {
         appData.tickets.splice(index, 1);
         window.TripStorage.saveData(appData);
-        renderInfo();
+        renderCircuit();
       }
     },
 
@@ -1294,7 +1488,6 @@
     },
 
     showHotelOnMap: function () {
-      // Switch to map tab
       document.querySelector('[data-tab="tab-map"]').click();
       setTimeout(function () {
         if (appData.hotel.lat && appData.hotel.lng) {
@@ -1315,14 +1508,14 @@
 
       appData.dining.savedRestaurants.push({ name: name, cuisine: cuisine, lat: null, lng: null });
       window.TripStorage.saveData(appData);
-      renderInfo();
+      renderCircuit();
     },
 
     removeRestaurant: function (index) {
       if (confirm('Restaurant verwijderen?')) {
         appData.dining.savedRestaurants.splice(index, 1);
         window.TripStorage.saveData(appData);
-        renderInfo();
+        renderCircuit();
       }
     },
 
@@ -1336,7 +1529,6 @@
       window.TripStorage.saveData(appData);
       renderGroup();
 
-      // Focus the new name input
       var inputs = document.querySelectorAll('.person-name-input');
       if (inputs.length) inputs[inputs.length - 1].focus();
     },
@@ -1345,7 +1537,7 @@
       if (confirm('Persoon verwijderen uit de groep?')) {
         appData.group.splice(index, 1);
         window.TripStorage.saveData(appData);
-          renderGroup();
+        renderGroup();
       }
     },
 
@@ -1360,7 +1552,6 @@
         picker.style.left = rect.left + 'px';
         picker.classList.add('visible');
 
-        // Close on outside click
         setTimeout(function () {
           document.addEventListener('click', closeEmojiPickerOnOutside);
         }, 0);
@@ -1371,7 +1562,7 @@
       if (activeEmojiPicker !== null && appData.group[activeEmojiPicker]) {
         appData.group[activeEmojiPicker].emoji = emoji;
         window.TripStorage.saveData(appData);
-          renderGroup();
+        renderGroup();
       }
       closeEmojiPicker();
     },
@@ -1396,8 +1587,33 @@
       if (!appData.raceResult) appData.raceResult = {};
       appData.raceResult[position] = driver;
       window.TripStorage.saveData(appData);
-      // Re-render to update leaderboard
       renderDashboard();
+    },
+
+    addCustomCost: function () {
+      var labelEl = document.getElementById('finance-new-label');
+      var amountEl = document.getElementById('finance-new-amount');
+      if (!labelEl || !amountEl) return;
+
+      var label = labelEl.value.trim();
+      var amount = parseFloat(amountEl.value);
+      if (!label || isNaN(amount)) return;
+
+      appData = window.TripStorage.loadData();
+      if (!appData.finances) appData.finances = { costs: [], paidItems: {} };
+      appData.finances.costs.push({ label: label, amount: amount });
+      window.TripStorage.saveData(appData);
+      renderGroup();
+    },
+
+    removeCustomCost: function (index) {
+      if (!confirm('Kosten verwijderen?')) return;
+      appData = window.TripStorage.loadData();
+      if (appData.finances && appData.finances.costs) {
+        appData.finances.costs.splice(index, 1);
+        window.TripStorage.saveData(appData);
+        renderGroup();
+      }
     }
   };
 

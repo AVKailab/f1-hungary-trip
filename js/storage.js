@@ -23,7 +23,11 @@
     transportNotes: '',
     tickets: [],  // { name: '', dataUrl: '', type: '' }
     predictions: {},
-    raceResult: null
+    raceResult: null,
+    finances: {
+      costs: [],
+      paidItems: {}
+    }
   };
 
   function deepClone(obj) {
@@ -52,6 +56,10 @@
         if (parsed.tickets) merged.tickets = parsed.tickets;
         if (parsed.predictions) merged.predictions = parsed.predictions;
         if (parsed.raceResult !== undefined) merged.raceResult = parsed.raceResult;
+        if (parsed.finances) {
+          if (parsed.finances.costs) merged.finances.costs = parsed.finances.costs;
+          if (parsed.finances.paidItems) merged.finances.paidItems = parsed.finances.paidItems;
+        }
         return merged;
       }
     } catch (e) {
