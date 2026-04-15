@@ -524,21 +524,14 @@
     // Regels & veiligheid accordion
     html += renderAccordion('circuit-regels', '\u26A0\uFE0F Regels & Veiligheid', renderRulesContent(), false);
 
-    // Tickets accordion
-    html += renderAccordion('tickets', '\uD83C\uDFAB Tickets', renderTicketsContent(), false);
-
     // Hotel accordion
     html += renderAccordion('hotel', '\uD83C\uDFE8 Hotel', renderHotelContent(), false);
 
     // Transport accordion
     html += renderAccordion('transport', '\uD83D\uDE8C Transport Opties', renderTransportContent(), false);
 
-    // Dining accordion
-    html += renderAccordion('dining', '\uD83C\uDF7D\uFE0F Eten', renderDiningContent(), false);
-
     container.innerHTML = html;
     attachCircuitEventListeners();
-    attachTicketListeners();
   }
 
   function renderCircuitRouteContent(legs, label, totalDuration) {
