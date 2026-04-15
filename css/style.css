@@ -63,10 +63,17 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: url('../img/background.jpg') center top / cover no-repeat;
+  background: var(--bg-primary) url('../img/background.jpg') center center / cover no-repeat;
   opacity: 0.35;
   pointer-events: none;
   z-index: 0;
+}
+
+@media (max-width: 600px) {
+  body::before {
+    background-size: 100% auto;
+    background-position: center 45%;
+  }
 }
 
 .app-header,
