@@ -314,30 +314,10 @@
   function renderSchedule() {
     var container = document.getElementById('schedule-content');
     var sessions = window.TripData.RACE_SESSIONS;
-    var activities = window.TripData.THURSDAY_ACTIVITIES;
 
     var html = '';
     html += '<div class="timezone-note">\u23F0 Alle tijden in CEST (UTC+2) \u2014 Lokale tijd Budapest</div>';
 
-    // Thursday Sightseeing
-    html += '<div class="day-group">';
-    html += '<div class="day-header">Donderdag \u2014 Sightseeing</div>';
-    activities.forEach(function (act) {
-      html += '<div class="session-card session-card--activity">';
-      html += '<div class="session-status-dot activity"></div>';
-      html += '<div class="session-info">';
-      html += '<div class="session-name">' + act.icon + ' ' + act.title + '</div>';
-      html += '<div class="session-time">' + act.time + ' \u2013 ' + act.endTime + '</div>';
-      html += '<div class="session-description">' + act.description + '</div>';
-      if (act.tip) {
-        html += '<div class="session-tip">\uD83D\uDCA1 ' + act.tip + '</div>';
-      }
-      html += '</div>';
-      html += '</div>';
-    });
-    html += '</div>';
-
-    // F1 Sessions (Fri/Sat/Sun)
     var currentDay = '';
     sessions.forEach(function (session) {
       if (session.day !== currentDay) {
