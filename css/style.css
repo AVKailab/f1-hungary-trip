@@ -63,7 +63,7 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--bg-primary) url('../img/background.jpg') center 85% / cover no-repeat;
+  background: var(--bg-primary) url('../img/background.jpg') center 58% / cover no-repeat;
   opacity: 0.35;
   pointer-events: none;
   z-index: 0;
