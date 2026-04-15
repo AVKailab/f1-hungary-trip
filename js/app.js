@@ -1108,8 +1108,6 @@
     });
     html += '</div>';
 
-    // Financial overview accordion
-    html += renderAccordion('finances', '\uD83D\uDCB0 Financieel Overzicht', renderFinancesContent(), false);
 
     container.innerHTML = html;
 
