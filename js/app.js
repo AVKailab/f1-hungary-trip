@@ -1071,21 +1071,6 @@
           html += '</div>';
         }
 
-        // Ticket upload
-        html += '<div class="person-ticket">';
-        if (person.ticketImage) {
-          html += '<div class="person-ticket-preview" onclick="window.App.viewPersonTicket(' + i + ')">';
-          html += '<img src="' + person.ticketImage + '" alt="Ticket">';
-          html += '<div class="person-ticket-badge">\uD83C\uDFAB Ticket</div>';
-          html += '</div>';
-          html += '<button class="btn-icon" onclick="window.App.removePersonTicket(' + i + ')" title="Ticket verwijderen" style="font-size:12px;color:var(--text-muted)">\u2715 Verwijder ticket</button>';
-        } else {
-          html += '<label class="person-ticket-upload">';
-          html += '\uD83C\uDFAB Ticket uploaden';
-          html += '<input type="file" accept="image/*,.pdf" data-person-index="' + i + '" class="person-ticket-input" style="display:none">';
-          html += '</label>';
-        }
-        html += '</div>';
 
         html += '</div>';
       });
