@@ -1,14 +1,16 @@
-/* ===== sync.js - Cloud group sync via jsonblob.com ===== */
+/* ===== sync.js - Shared predictions & race result sync ===== */
+/* Everybody shares the SAME jsonblob. No room codes. Predictions are
+   keyed per person name, so they merge cleanly across devices. */
 (function () {
   'use strict';
 
   /* ---------- Configuration ---------- */
-  var MASTER_BLOB_ID = '019ccd32-605a-7845-a597-fc4bd0ba9033';
+  var MASTER_BLOB_ID = '019d9a9e-925a-7849-bdc4-e2a1868b7991';
   var JSONBLOB_BASE = 'https://jsonblob.com/api/jsonBlob';
   var CORS_PROXY = 'https://corsproxy.io/?';
-  var POLL_INTERVAL = 8000; // 8 seconds
+  var POLL_INTERVAL = 10000; // 10 seconds
 
-  function masterUrl() {
+  function blobUrl() {
     return CORS_PROXY + encodeURIComponent(JSONBLOB_BASE + '/' + MASTER_BLOB_ID);
   }
 
@@ -17,49 +19,31 @@
   var onUpdateCallback = null;
   var isSyncing = false;
   var pushCooldownUntil = 0;
+  var lastRemoteHash = '';
 
-  /* ---------- Room ID helpers ---------- */
-  function getRoomId() {
-    return localStorage.getItem('f1Trip_syncRoom') || null;
+  /* ---------- Helpers ---------- */
+
+  function hashOf(obj) {
+    try { return JSON.stringify(obj || {}); } catch (e) { return ''; }
   }
 
-  function setRoomId(code) {
-    localStorage.setItem('f1Trip_syncRoom', code);
-  }
-
-  function isConnected() {
-    return !!getRoomId();
-  }
-
-  /* Generate a short, easy-to-share room code (6 chars) */
-  function generateRoomCode() {
-    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 to avoid confusion
-    var code = '';
-    for (var i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
-  }
-
-  /* ---------- Master blob helpers ---------- */
-
-  /* Fetch the entire master blob */
-  function fetchMaster(callback) {
-    fetch(masterUrl(), {
+  function fetchRemote(callback) {
+    fetch(blobUrl(), {
       headers: { 'Accept': 'application/json' }
     }).then(function (res) {
-      if (!res.ok) throw new Error('Sync fout (' + res.status + ')');
+      // 404 = blob expired or never created; treat as empty so app keeps working
+      if (res.status === 404) return { predictions: {}, raceResult: null };
+      if (!res.ok) throw new Error('Sync error (' + res.status + ')');
       return res.json();
     }).then(function (data) {
-      callback(null, data);
+      callback(null, data || {});
     }).catch(function (err) {
       callback(err.message || 'Kon data niet ophalen');
     });
   }
 
-  /* Save the entire master blob */
-  function saveMaster(data, callback) {
-    fetch(masterUrl(), {
+  function saveRemote(data, callback) {
+    fetch(blobUrl(), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(data)
@@ -71,202 +55,120 @@
     });
   }
 
-  /* ---------- Room operations ---------- */
+  /* Merge remote predictions into local: prefer the most-recently-updated
+     per person. Each prediction object may carry _updated timestamp. */
+  function mergePredictions(localPreds, remotePreds) {
+    localPreds = localPreds || {};
+    remotePreds = remotePreds || {};
+    var merged = {};
+    var names = {};
+    Object.keys(localPreds).forEach(function (n) { names[n] = true; });
+    Object.keys(remotePreds).forEach(function (n) { names[n] = true; });
 
-  /* Create a new room with current local data */
-  function createRoom(callback) {
-    fetchMaster(function (err, master) {
-      if (err) return callback('Kon groep niet aanmaken: ' + err);
-
-      var rooms = master.rooms || {};
-      var code = generateRoomCode();
-
-      // Ensure unique code (extremely unlikely collision, but just in case)
-      var attempts = 0;
-      while (rooms[code] && attempts < 10) {
-        code = generateRoomCode();
-        attempts++;
-      }
-
-      var localData = window.TripStorage.loadData();
-      rooms[code] = {
-        group: stripTickets(localData.group || []),
-        predictions: localData.predictions || {},
-        raceResult: localData.raceResult || null,
-        created: Date.now()
-      };
-      master.rooms = rooms;
-
-      saveMaster(master, function (saveErr) {
-        if (saveErr) return callback('Kon groep niet delen: ' + saveErr);
-        setRoomId(code);
-        callback(null, code);
-      });
+    Object.keys(names).forEach(function (name) {
+      var l = localPreds[name];
+      var r = remotePreds[name];
+      if (!l) { merged[name] = r; return; }
+      if (!r) { merged[name] = l; return; }
+      var lu = l._updated || 0;
+      var ru = r._updated || 0;
+      merged[name] = (ru > lu) ? r : l;
     });
+    return merged;
   }
 
-  /* Join an existing room */
-  function joinRoom(code, callback) {
-    code = (code || '').toUpperCase().trim();
-    if (!code) return callback('Geen code opgegeven');
+  /* ---------- Sync operations ---------- */
 
-    fetchMaster(function (err, master) {
-      if (err) return callback('Kon niet deelnemen: ' + err);
-
-      var rooms = master.rooms || {};
-      var roomData = rooms[code];
-      if (!roomData) return callback('Groep niet gevonden (code: ' + code + ')');
-
-      setRoomId(code);
-
-      // Replace local data with remote data
-      var localData = window.TripStorage.loadData();
-      localData.group = roomData.group || [];
-      localData.predictions = roomData.predictions || {};
-      localData.raceResult = roomData.raceResult || null;
-      window.TripStorage.saveData(localData);
-
-      callback(null, roomData);
-    });
-  }
-
-  /* ---------- Sync & Push ---------- */
-
-  /* Sync: fetch remote room data, merge with local */
-  function sync(callback) {
-    if (isSyncing || !isConnected()) return;
-    if (Date.now() < pushCooldownUntil) return;
+  /* Pull from remote, merge predictions + raceResult, save locally if changed */
+  function pullAndMerge(callback) {
+    if (isSyncing) return;
+    if (Date.now() < pushCooldownUntil) { if (callback) callback(); return; }
     isSyncing = true;
 
-    var code = getRoomId();
-
-    fetchMaster(function (err, master) {
+    fetchRemote(function (err, remote) {
       isSyncing = false;
       if (err) {
         if (callback) callback(err);
         return;
       }
 
-      var rooms = master.rooms || {};
-      var roomData = rooms[code];
-      if (!roomData) {
-        if (callback) callback('Groep niet meer beschikbaar');
-        return;
+      var localData = window.TripStorage.loadData();
+      var remotePreds = remote.predictions || {};
+      var remoteResult = (remote.raceResult !== undefined) ? remote.raceResult : null;
+
+      var mergedPreds = mergePredictions(localData.predictions, remotePreds);
+      var predsChanged = hashOf(mergedPreds) !== hashOf(localData.predictions);
+      var resultChanged = hashOf(remoteResult) !== hashOf(localData.raceResult || null);
+
+      // Race result: take remote if remote is set and differs (global last-write-wins).
+      // If local has a result but remote doesn't, keep local (it will be pushed next).
+      var newResult = localData.raceResult || null;
+      if (remoteResult && resultChanged) {
+        newResult = remoteResult;
       }
 
-      var localData = window.TripStorage.loadData();
-      var remoteGroup = roomData.group || [];
-
-      var groupChanged = JSON.stringify(stripTickets(localData.group)) !== JSON.stringify(stripTickets(remoteGroup));
-      var predictionsChanged = JSON.stringify(localData.predictions || {}) !== JSON.stringify(roomData.predictions || {});
-      var resultChanged = JSON.stringify(localData.raceResult || null) !== JSON.stringify(roomData.raceResult || null);
-      var changed = groupChanged || predictionsChanged || resultChanged;
+      var changed = predsChanged || (hashOf(newResult) !== hashOf(localData.raceResult || null));
 
       if (changed) {
-        localData.group = mergeWithLocalTickets(remoteGroup, localData.group);
-        localData.predictions = roomData.predictions || {};
-        localData.raceResult = roomData.raceResult || null;
+        localData.predictions = mergedPreds;
+        localData.raceResult = newResult;
         window.TripStorage.saveData(localData);
       }
+
+      lastRemoteHash = hashOf({ p: remotePreds, r: remoteResult });
 
       if (callback) callback(null, changed);
       if (changed && onUpdateCallback) onUpdateCallback();
     });
   }
 
-  /* Push local data to remote room */
-  function pushGroupChange(callback) {
-    if (!isConnected()) {
-      if (callback) callback();
-      return;
-    }
+  /* Push local predictions + raceResult to remote (merge with remote first to
+     avoid clobbering other people's predictions) */
+  function pushLocal(callback) {
+    pushCooldownUntil = Date.now() + 8000;
 
-    pushCooldownUntil = Date.now() + 10000;
-    var code = getRoomId();
-
-    fetchMaster(function (err, master) {
+    fetchRemote(function (err, remote) {
       if (err) {
         pushCooldownUntil = 0;
         if (callback) callback(err);
         return;
       }
 
-      var rooms = master.rooms || {};
       var localData = window.TripStorage.loadData();
+      var mergedPreds = mergePredictions(remote.predictions || {}, localData.predictions || {});
 
-      rooms[code] = {
-        group: stripTickets(localData.group || []),
-        predictions: localData.predictions || {},
-        raceResult: localData.raceResult || null,
-        updated: Date.now()
-      };
-      // Preserve created timestamp if it existed
-      if (master.rooms && master.rooms[code] && master.rooms[code].created) {
-        rooms[code].created = master.rooms[code].created;
-      }
-      master.rooms = rooms;
+      // Race result: local wins on push (user just clicked Save)
+      var newResult = (localData.raceResult !== undefined) ? localData.raceResult : (remote.raceResult || null);
 
-      saveMaster(master, function (saveErr) {
-        if (!saveErr) {
-          pushCooldownUntil = Date.now() + 2000;
-        } else {
+      remote.predictions = mergedPreds;
+      remote.raceResult = newResult;
+      remote._updated = Date.now();
+
+      saveRemote(remote, function (saveErr) {
+        if (saveErr) {
           pushCooldownUntil = 0;
+          if (callback) callback(saveErr);
+          return;
         }
-        if (callback) callback(saveErr);
+        // Also update local with merged predictions so we're in sync
+        localData.predictions = mergedPreds;
+        localData.raceResult = newResult;
+        window.TripStorage.saveData(localData);
+        pushCooldownUntil = Date.now() + 2000;
+        if (callback) callback(null);
       });
-    });
-  }
-
-  /* ---------- Ticket helpers ---------- */
-
-  function stripTickets(group) {
-    return (group || []).map(function (p) {
-      var copy = {};
-      Object.keys(p).forEach(function (k) {
-        if (k !== 'ticketImage' && k !== 'ticketType') {
-          copy[k] = p[k];
-        }
-      });
-      return copy;
-    });
-  }
-
-  function mergeWithLocalTickets(remoteGroup, localGroup) {
-    return remoteGroup.map(function (remotePerson, i) {
-      var localPerson = null;
-      var rName = (remotePerson.name || '').toLowerCase().trim();
-
-      if (rName) {
-        for (var j = 0; j < localGroup.length; j++) {
-          if ((localGroup[j].name || '').toLowerCase().trim() === rName) {
-            localPerson = localGroup[j];
-            break;
-          }
-        }
-      }
-
-      if (!localPerson && i < localGroup.length) {
-        localPerson = localGroup[i];
-      }
-
-      if (localPerson && localPerson.ticketImage) {
-        remotePerson.ticketImage = localPerson.ticketImage;
-        remotePerson.ticketType = localPerson.ticketType;
-      }
-
-      return remotePerson;
     });
   }
 
   /* ---------- Polling ---------- */
 
   function startPolling(onUpdate) {
-    onUpdateCallback = onUpdate;
+    onUpdateCallback = onUpdate || null;
     stopPolling();
+    pullAndMerge();
     pollTimer = setInterval(function () {
-      sync();
+      pullAndMerge();
     }, POLL_INTERVAL);
-    sync();
   }
 
   function stopPolling() {
@@ -276,40 +178,11 @@
     }
   }
 
-  /* ---------- Disconnect ---------- */
-
-  function disconnect() {
-    stopPolling();
-    localStorage.removeItem('f1Trip_syncRoom');
-    onUpdateCallback = null;
-  }
-
-  /* ---------- Share URL ---------- */
-
-  function getShareUrl() {
-    var code = getRoomId();
-    if (!code) return null;
-    var base = window.location.origin + window.location.pathname;
-    return base + '?room=' + code;
-  }
-
-  function checkUrlForRoom() {
-    var params = new URLSearchParams(window.location.search);
-    return params.get('room') || null;
-  }
-
   /* ---------- Public API ---------- */
   window.TripSync = {
-    getRoomId: getRoomId,
-    isConnected: isConnected,
-    createRoom: createRoom,
-    joinRoom: joinRoom,
-    sync: sync,
-    pushGroupChange: pushGroupChange,
     startPolling: startPolling,
     stopPolling: stopPolling,
-    disconnect: disconnect,
-    getShareUrl: getShareUrl,
-    checkUrlForRoom: checkUrlForRoom
+    pullAndMerge: pullAndMerge,
+    pushLocal: pushLocal
   };
 })();

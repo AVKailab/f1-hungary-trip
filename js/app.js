@@ -13,6 +13,14 @@
     initTabNavigation();
     renderActiveTab();
     startCountdownUpdates();
+
+    // Start cloud sync for predictions + raceResult so all 4 friends see each other's input
+    if (window.TripSync && typeof window.TripSync.startPolling === 'function') {
+      window.TripSync.startPolling(function () {
+        // Remote update arrived — re-render so new predictions/result show up
+        renderActiveTab();
+      });
+    }
   });
 
   /* ---------- Tab Navigation ---------- */
@@ -1530,7 +1538,13 @@
       if (!appData.predictions) appData.predictions = {};
       if (!appData.predictions[personName]) appData.predictions[personName] = {};
       appData.predictions[personName][position] = driver;
+      appData.predictions[personName]._updated = Date.now();
       window.TripStorage.saveData(appData);
+
+      // Push to cloud so other friends see it
+      if (window.TripSync && typeof window.TripSync.pushLocal === 'function') {
+        window.TripSync.pushLocal();
+      }
     },
 
     saveRaceResult: function (selectEl) {
@@ -1540,8 +1554,14 @@
       appData = window.TripStorage.loadData();
       if (!appData.raceResult) appData.raceResult = {};
       appData.raceResult[position] = driver;
+      appData.raceResult._updated = Date.now();
       window.TripStorage.saveData(appData);
       renderDashboard();
+
+      // Push to cloud so other friends see the official result
+      if (window.TripSync && typeof window.TripSync.pushLocal === 'function') {
+        window.TripSync.pushLocal();
+      }
     },
 
     addCustomCost: function () {
