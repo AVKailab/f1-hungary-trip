@@ -390,28 +390,9 @@
   function renderSchedule() {
     var container = document.getElementById('schedule-content');
     var sessions = window.TripData.RACE_SESSIONS;
-    var activities = window.TripData.THURSDAY_ACTIVITIES || [];
 
     var html = '';
     html += '<div class="timezone-note">\u23F0 Alle tijden in CEST (UTC+2) \u2014 Lokale tijd Budapest</div>';
-
-    // Donderdag sightseeing (vóór F1 sessies)
-    if (activities.length > 0) {
-      html += '<div class="day-group">';
-      html += '<div class="day-header">Donderdag \u2014 Sightseeing Budapest</div>';
-      activities.forEach(function (a) {
-        html += '<div class="session-card">';
-        html += '<div class="session-status-dot upcoming"></div>';
-        html += '<div class="session-info">';
-        html += '<div class="session-name">' + a.icon + ' ' + a.title + '</div>';
-        html += '<div class="session-time">' + a.time + ' \u2013 ' + a.endTime + '</div>';
-        html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.4">' + a.description + '</div>';
-        html += '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4">\uD83D\uDCA1 ' + a.tip + '</div>';
-        html += '</div>';
-        html += '</div>';
-      });
-      html += '</div>';
-    }
 
     var currentDay = '';
     sessions.forEach(function (session) {

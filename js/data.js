@@ -382,46 +382,6 @@
     }
   ];
 
-  /* ---------- Donderdag Sightseeing ---------- */
-  var THURSDAY_ACTIVITIES = [
-    {
-      id: 'thurs-sightseeing',
-      time: '10:00',
-      endTime: '13:00',
-      title: 'Sightseeing Budapest',
-      icon: '\uD83C\uDFDB\uFE0F',
-      description: 'Parlement, Vissersbastion, Buda Castle, Kettingbrug. Loop of neem tram 2 langs de Donau.',
-      tip: 'Start bij het Parlement (Kossuth t\u00E9r, M2 metro) en loop zuidwaarts.'
-    },
-    {
-      id: 'thurs-lunch',
-      time: '13:00',
-      endTime: '14:30',
-      title: 'Lunch',
-      icon: '\uD83C\uDF5D',
-      description: 'Probeer de Hongaarse keuken: goulash, l\u00E1ngos, of chimney cake. Centrale markthal is een aanrader.',
-      tip: 'Nagymecs\u00E1rnok (Centrale Markthal) bij Fov\u00E1m t\u00E9r \u2014 fantastisch voor streetfood.'
-    },
-    {
-      id: 'thurs-bath',
-      time: '15:00',
-      endTime: '18:00',
-      title: 'Thermaalbad',
-      icon: '\u2668\uFE0F',
-      description: 'Sz\u00E9chenyi of Gell\u00E9rt thermaalbad. Ontspan na de reis!',
-      tip: 'Sz\u00E9chenyi is groter en beter voor groepen. Koop tickets online \u2014 scheelt wachtrij. Zwembroek verplicht (geen shorts).'
-    },
-    {
-      id: 'thurs-evening',
-      time: '20:00',
-      endTime: '23:00',
-      title: 'Ruin bars & avondeten',
-      icon: '\uD83C\uDF7B',
-      description: 'Bezoek de beroemde ruin bars in het Joodse Kwartier (district VII). Szimpla Kert is de bekendste.',
-      tip: 'Het hotel ligt in district VII \u2014 alles is op loopafstand! Reserveer een restaurant of eet bij een ruin bar.'
-    }
-  ];
-
   /* ---------- Financi\u00EBn Configuratie ---------- */
   var FINANCES_CONFIG = {
     fixedCosts: [
@@ -456,7 +416,6 @@
     CIRCUIT_ROUTE_TO: CIRCUIT_ROUTE_TO,
     CIRCUIT_ROUTE_RETURN: CIRCUIT_ROUTE_RETURN,
     CIRCUIT_RULES: CIRCUIT_RULES,
-    THURSDAY_ACTIVITIES: THURSDAY_ACTIVITIES,
     FINANCES_CONFIG: FINANCES_CONFIG
   };
 })();
