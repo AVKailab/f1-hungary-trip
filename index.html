@@ -138,7 +138,13 @@
       <div class="translate-body">
         <label class="translate-label" for="translate-input">Wat wil je zeggen? (Nederlands)</label>
         <textarea id="translate-input" class="translate-input" rows="2" placeholder="Bijv. Twee bier, alstublieft"></textarea>
-        <button id="translate-btn" class="translate-btn">Vertaal</button>
+        <div class="translate-actions-row">
+          <button id="translate-btn" class="translate-btn">Vertaal</button>
+          <button id="translate-mic" class="translate-mic" aria-label="Spreek in" title="Spreek in het Nederlands">
+            <span class="translate-mic-icon">&#x1F3A4;</span>
+          </button>
+        </div>
+        <div id="translate-voice-status" class="translate-voice-status hidden"></div>
 
         <div id="translate-result" class="translate-result">
           <div class="translate-result-label">Hongaars</div>

@@ -2409,9 +2409,15 @@ body::before {
   box-shadow: 0 0 0 3px rgba(225, 6, 0, 0.15);
 }
 
-.translate-btn {
+.translate-actions-row {
+  display: flex;
+  gap: 8px;
   margin-top: 8px;
-  width: 100%;
+  align-items: stretch;
+}
+
+.translate-btn {
+  flex: 1;
   background: var(--f1-red);
   color: #fff;
   border: none;
@@ -2421,6 +2427,7 @@ body::before {
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s ease;
+  min-height: 48px;
 }
 
 .translate-btn:hover:not(:disabled) {
@@ -2430,6 +2437,104 @@ body::before {
 .translate-btn:disabled {
   opacity: 0.6;
   cursor: wait;
+}
+
+.translate-mic {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  position: relative;
+}
+
+.translate-mic:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.translate-mic:active {
+  transform: scale(0.95);
+}
+
+.translate-mic-icon {
+  line-height: 1;
+  pointer-events: none;
+}
+
+.translate-mic.is-listening {
+  background: rgba(225, 6, 0, 0.18);
+  border-color: rgba(225, 6, 0, 0.6);
+  animation: translate-mic-pulse 1.2s ease-in-out infinite;
+}
+
+.translate-mic.is-listening::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid rgba(225, 6, 0, 0.45);
+  border-radius: 14px;
+  animation: translate-mic-ring 1.2s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes translate-mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(225, 6, 0, 0); }
+}
+
+@keyframes translate-mic-ring {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.25); }
+}
+
+.translate-voice-status {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.4;
+  transition: all 0.2s ease;
+}
+
+.translate-voice-status.hidden {
+  display: none;
+}
+
+.translate-voice-status[data-state="listening"] {
+  background: rgba(225, 6, 0, 0.1);
+  border-color: rgba(225, 6, 0, 0.3);
+  color: #ffb8b5;
+}
+
+.translate-voice-status[data-state="working"] {
+  background: rgba(255, 200, 0, 0.08);
+  border-color: rgba(255, 200, 0, 0.25);
+  color: #ffda8f;
+}
+
+.translate-voice-status[data-state="speaking"] {
+  background: rgba(0, 210, 106, 0.08);
+  border-color: rgba(0, 210, 106, 0.25);
+  color: #8fe5b8;
+}
+
+.translate-voice-status[data-state="error"] {
+  background: rgba(225, 6, 0, 0.12);
+  border-color: rgba(225, 6, 0, 0.3);
+  color: #ff9b96;
 }
 
 .translate-result {

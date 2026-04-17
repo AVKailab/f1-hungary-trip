@@ -136,6 +136,142 @@
     }
   }
 
+  /* ---------- Voice recognition (NL speech -> text) ---------- */
+  var recognition = null;
+  var isListening = false;
+
+  function getSpeechRecognition() {
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }
+
+  function setVoiceStatus(text, state) {
+    var el = document.getElementById('translate-voice-status');
+    if (!el) return;
+    if (!text) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      el.dataset.state = '';
+      return;
+    }
+    el.classList.remove('hidden');
+    el.textContent = text;
+    el.dataset.state = state || '';
+  }
+
+  function setMicListening(on) {
+    var btn = document.getElementById('translate-mic');
+    if (!btn) return;
+    if (on) btn.classList.add('is-listening');
+    else btn.classList.remove('is-listening');
+  }
+
+  function stopListening() {
+    if (recognition && isListening) {
+      try { recognition.stop(); } catch (e) {}
+    }
+  }
+
+  function startVoiceInput() {
+    var SR = getSpeechRecognition();
+    if (!SR) {
+      alert('Stemherkenning wordt niet ondersteund op dit apparaat.\nTip: gebruik Chrome op Android of Safari op iOS 14.5+');
+      return;
+    }
+
+    // If already listening — toggle off
+    if (isListening) {
+      stopListening();
+      return;
+    }
+
+    // Stop any ongoing Hungarian speech before listening
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+    try {
+      recognition = new SR();
+    } catch (e) {
+      setVoiceStatus('\u26A0\uFE0F Kon microfoon niet starten', 'error');
+      return;
+    }
+
+    recognition.lang = 'nl-NL';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    var finalTranscript = '';
+
+    recognition.onstart = function () {
+      isListening = true;
+      setMicListening(true);
+      setVoiceStatus('\uD83C\uDFA4 Luisteren\u2026 spreek nu', 'listening');
+      var input = document.getElementById('translate-input');
+      if (input) input.value = '';
+    };
+
+    recognition.onresult = function (event) {
+      var interim = '';
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        var r = event.results[i];
+        if (r.isFinal) finalTranscript += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      var input = document.getElementById('translate-input');
+      if (input) input.value = (finalTranscript + interim).trim();
+      if (interim) setVoiceStatus('\uD83C\uDFA4 \u201C' + interim.trim() + '\u201D', 'listening');
+    };
+
+    recognition.onerror = function (event) {
+      isListening = false;
+      setMicListening(false);
+      var msg = 'Fout: ' + event.error;
+      if (event.error === 'no-speech') msg = '\u26A0\uFE0F Geen spraak gehoord';
+      else if (event.error === 'not-allowed') msg = '\u26A0\uFE0F Microfoon toegang geweigerd';
+      else if (event.error === 'audio-capture') msg = '\u26A0\uFE0F Geen microfoon gevonden';
+      else if (event.error === 'network') msg = '\u26A0\uFE0F Netwerk vereist voor stemherkenning';
+      setVoiceStatus(msg, 'error');
+      setTimeout(function () { setVoiceStatus('', ''); }, 3000);
+    };
+
+    recognition.onend = function () {
+      isListening = false;
+      setMicListening(false);
+      var text = finalTranscript.trim();
+      var input = document.getElementById('translate-input');
+      if (input) input.value = text;
+
+      if (text) {
+        setVoiceStatus('\u2728 Vertalen\u2026', 'working');
+        voiceTranslateAndSpeak(text);
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      isListening = false;
+      setMicListening(false);
+      setVoiceStatus('\u26A0\uFE0F Kon niet starten: ' + (e.message || e), 'error');
+    }
+  }
+
+  /* Voice mode flow: transcript -> translate -> speak */
+  function voiceTranslateAndSpeak(text) {
+    translate(text, function (err, hu) {
+      if (err) {
+        setVoiceStatus('\u26A0\uFE0F ' + err, 'error');
+        setTimeout(function () { setVoiceStatus('', ''); }, 3000);
+        return;
+      }
+      showResult(text, hu);
+      addToHistory(text, hu);
+      renderHistory();
+      setVoiceStatus('\uD83D\uDD0A Uitspraak\u2026', 'speaking');
+      speak(hu);
+      setTimeout(function () { setVoiceStatus('', ''); }, 2500);
+    });
+  }
+
   /* ---------- Modal UI ---------- */
   function openModal() {
     var modal = document.getElementById('translate-modal');
@@ -153,6 +289,8 @@
     modal.classList.remove('open');
     document.body.style.overflow = '';
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    stopListening();
+    setVoiceStatus('', '');
   }
 
   function escapeHTML(str) {
@@ -300,6 +438,16 @@
       var resultText = document.getElementById('translate-result-text');
       if (resultText && resultText.textContent) speak(resultText.textContent);
     });
+
+    var micBtn = document.getElementById('translate-mic');
+    if (micBtn) {
+      // Hide mic button if API is not supported (e.g. desktop Firefox)
+      if (!getSpeechRecognition()) {
+        micBtn.style.display = 'none';
+      } else {
+        micBtn.addEventListener('click', startVoiceInput);
+      }
+    }
 
     var copyBtn = document.getElementById('translate-copy');
     if (copyBtn) copyBtn.addEventListener('click', function () {
