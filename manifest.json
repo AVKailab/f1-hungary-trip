@@ -1,0 +1,21 @@
+{
+  "name": "F1 Hungarian GP 2026",
+  "short_name": "F1 Hungary",
+  "description": "Race weekend trip planner voor de Hongaarse Grand Prix 2026",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#15151E",
+  "theme_color": "#E10600",
+  "lang": "nl",
+  "categories": ["travel", "sports", "lifestyle"],
+  "icons": [
+    {
+      "src": "img/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

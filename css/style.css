@@ -52,6 +52,10 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
+  overscroll-behavior-y: none; /* no rubber-band revealing white chrome */
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* kill 300ms tap delay & prevent double-tap zoom */
   -webkit-font-smoothing: antialiased;
   position: relative;
 }
@@ -422,12 +426,14 @@ body::before {
   background: var(--bg-tertiary);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 12px 14px;
   color: var(--text-primary);
   font-family: var(--font-primary);
-  font-size: 14px;
+  font-size: 16px; /* >= 16px prevents iOS auto-zoom on focus */
   outline: none;
   transition: border-color 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .form-input:focus, .form-textarea:focus {
@@ -1864,10 +1870,10 @@ body::before {
   background: var(--bg-secondary);
   border: 1px solid var(--bg-tertiary);
   border-radius: var(--radius-sm);
-  padding: 8px 4px;
+  padding: 10px 6px;
   color: var(--text-primary);
   font-family: var(--font-primary);
-  font-size: 11px;
+  font-size: 16px; /* >= 16px prevents iOS auto-zoom on focus */
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -2625,4 +2631,98 @@ body::before {
   .translate-fab-label {
     font-size: 13px;
   }
+}
+
+/* =====================================================================
+   Mobile-first optimizations (applied to all sizes, hardened for phones)
+   ===================================================================== */
+
+/* Prevent horizontal scroll from any child */
+html {
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* All form controls: 16px min to stop iOS auto-zoom on focus */
+select,
+input[type="text"],
+input[type="date"],
+input[type="number"],
+input[type="email"],
+input[type="tel"],
+input[type="search"],
+textarea {
+  font-size: 16px;
+}
+
+/* Smooth inertial scroll in any overflow container */
+.tab-content,
+.accordion-body,
+.translate-body {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure all interactive elements have a min 44x44 tap target */
+button,
+.tab-nav-item,
+.accordion-header,
+[role="button"] {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* Tab nav specific: let it breathe on small screens */
+@media (max-width: 400px) {
+  .tab-nav-item {
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+  .tab-nav-item .nav-icon {
+    font-size: 18px;
+  }
+  .tab-nav-item .nav-label {
+    font-size: 9px;
+  }
+}
+
+/* Safe-area awareness for PWA standalone on iPhone */
+@supports (padding: env(safe-area-inset-top)) {
+  .app-header {
+    padding-top: calc(var(--space-md) + env(safe-area-inset-top));
+  }
+}
+
+/* PWA standalone: hide scrollbars in the main scroll container since no browser UI */
+@media (display-mode: standalone) {
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+/* Prevent accidental selection on interactive cards */
+.quick-card,
+.route-step-header,
+.accordion-header,
+.tab-nav-item,
+.translate-quick-btn,
+.translate-history-item,
+.translate-fab {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Native-feeling tap animation */
+.quick-card:active,
+.accordion-header:active,
+.translate-quick-btn:active,
+.translate-history-item:active,
+.person-avatar:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease;
+}
+
+/* Hide scrollbars in translate body (looks cleaner in a modal sheet) */
+.translate-body::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
 }
