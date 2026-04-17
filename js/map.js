@@ -17,6 +17,20 @@
     });
   }
 
+  /* Build a "Navigate in Google Maps" deep-link.
+     Uses the universal maps URL — on phones with Google Maps installed this
+     opens the native app; otherwise it opens in the browser. */
+  function gmapsNavUrl(lat, lng) {
+    return 'https://www.google.com/maps/dir/?api=1&destination=' +
+      encodeURIComponent(lat + ',' + lng) + '&travelmode=driving';
+  }
+
+  function navButtonHTML(lat, lng) {
+    var url = gmapsNavUrl(lat, lng);
+    return '<a class="gmaps-nav-btn" href="' + url + '" target="_blank" rel="noopener">' +
+      '\uD83E\uDDED Navigeer in Google Maps</a>';
+  }
+
   function initMap() {
     if (map) return;
 
@@ -37,7 +51,8 @@
     markers.hungaroring = L.marker([hungaroring.lat, hungaroring.lng], {
       icon: createIcon('\uD83C\uDFC1')
     }).addTo(map).bindPopup(
-      '<strong>\uD83C\uDFC1 Hungaroring</strong><br>Formula 1 Hungarian Grand Prix<br>Mogyor\u00F3d, Hongarije'
+      '<strong>\uD83C\uDFC1 Hungaroring</strong><br>Formula 1 Hungarian Grand Prix<br>Mogyor\u00F3d, Hongarije' +
+      '<br>' + navButtonHTML(hungaroring.lat, hungaroring.lng)
     );
 
     // Load hotel marker
@@ -89,7 +104,8 @@
       icon: createIcon('\uD83C\uDFE8')
     }).addTo(map).bindPopup(
       '<strong>\uD83C\uDFE8 ' + (hotel.name || 'Hotel') + '</strong>' +
-      (hotel.address ? '<br>' + hotel.address : '')
+      (hotel.address ? '<br>' + hotel.address : '') +
+      '<br>' + navButtonHTML(hotel.lat, hotel.lng)
     );
 
     updateRouteLine();
@@ -104,7 +120,8 @@
       icon: createIcon('\uD83C\uDF7D\uFE0F')
     }).addTo(map).bindPopup(
       '<strong>\uD83C\uDF7D\uFE0F ' + restaurant.name + '</strong>' +
-      (restaurant.cuisine ? '<br>' + restaurant.cuisine : '')
+      (restaurant.cuisine ? '<br>' + restaurant.cuisine : '') +
+      '<br>' + navButtonHTML(restaurant.lat, restaurant.lng)
     );
   }
 
@@ -175,6 +192,7 @@
     addRestaurantMarker: addRestaurantMarker,
     fitAll: fitAll,
     refreshMap: refreshMap,
-    showLocation: showLocation
+    showLocation: showLocation,
+    gmapsNavUrl: gmapsNavUrl
   };
 })();

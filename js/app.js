@@ -129,7 +129,6 @@
 
     switch (tab) {
       case 'tab-dashboard': renderDashboard(); break;
-      case 'tab-schedule': renderSchedule(); break;
       case 'tab-roadtrip': renderRoadtrip(); break;
       case 'tab-results': renderResults(); break;
       case 'tab-circuit': renderCircuit(); break;
@@ -142,7 +141,6 @@
     if (countdownInterval) clearInterval(countdownInterval);
     countdownInterval = setInterval(function () {
       updateDashboardCountdowns();
-      updateScheduleCountdowns();
       updateRoadtripCountdowns();
     }, 1000);
   }
@@ -163,38 +161,6 @@
     if (nextCountdownEl && next) {
       nextCountdownEl.innerHTML = window.TripCountdown.renderCountdownHTML(next.date, 'mini');
     }
-  }
-
-  function updateScheduleCountdowns() {
-    if (getActiveTab() !== 'tab-schedule') return;
-
-    window.TripData.RACE_SESSIONS.forEach(function (session) {
-      var statusEl = document.getElementById('status-' + session.id);
-      var countdownEl = document.getElementById('countdown-' + session.id);
-
-      var status = window.TripCountdown.getSessionStatus(session);
-
-      if (statusEl) {
-        statusEl.className = 'session-badge ' + status;
-        var labels = { upcoming: 'Binnenkort', live: 'LIVE', completed: 'Klaar' };
-        statusEl.textContent = labels[status] || status;
-      }
-
-      if (countdownEl) {
-        if (status === 'upcoming') {
-          countdownEl.textContent = window.TripCountdown.formatMiniCountdown(session.date);
-          countdownEl.style.display = '';
-        } else {
-          countdownEl.style.display = 'none';
-        }
-      }
-
-      // Update status dot
-      var dotEl = document.getElementById('dot-' + session.id);
-      if (dotEl) {
-        dotEl.className = 'session-status-dot ' + status;
-      }
-    });
   }
 
   function updateRoadtripCountdowns() {
@@ -272,6 +238,25 @@
     html += '<div class="quick-card-icon">\uD83D\uDC65</div>';
     html += '<div class="quick-card-value">' + (appData.group.length || 0) + ' personen</div>';
     html += '<div class="quick-card-label">Groep</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Navigation card — deep-link to Google Maps
+    var hung = window.TripData.HUNGARORING;
+    var hotelSet = !!(appData.hotel && appData.hotel.lat && appData.hotel.lng);
+    html += '<div class="card mt-md">';
+    html += '<div class="card-header"><span class="card-title">\uD83E\uDDED Navigatie</span></div>';
+    html += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">';
+    html += '<a class="gmaps-nav-btn gmaps-nav-btn--full" href="' +
+      'https://www.google.com/maps/dir/?api=1&destination=' + hung.lat + ',' + hung.lng + '&travelmode=driving' +
+      '" target="_blank" rel="noopener">\uD83C\uDFC1 Navigeer naar Hungaroring</a>';
+    if (hotelSet) {
+      html += '<a class="gmaps-nav-btn gmaps-nav-btn--full" href="' +
+        'https://www.google.com/maps/dir/?api=1&destination=' + appData.hotel.lat + ',' + appData.hotel.lng + '&travelmode=driving' +
+        '" target="_blank" rel="noopener">\uD83C\uDFE8 Navigeer naar ' + escapeHTML(appData.hotel.name || 'Hotel') + '</a>';
+    } else {
+      html += '<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:6px">\uD83D\uDCA1 Stel je hotel in op de Kaart tab voor een snelle hotel-navigatie</div>';
+    }
     html += '</div>';
     html += '</div>';
 
@@ -384,47 +369,6 @@
     });
 
     return score;
-  }
-
-  /* ---------- Schedule ---------- */
-  function renderSchedule() {
-    var container = document.getElementById('schedule-content');
-    var sessions = window.TripData.RACE_SESSIONS;
-
-    var html = '';
-    html += '<div class="timezone-note">\u23F0 Alle tijden in CEST (UTC+2) \u2014 Lokale tijd Budapest</div>';
-
-    var currentDay = '';
-    sessions.forEach(function (session) {
-      if (session.day !== currentDay) {
-        if (currentDay) html += '</div>';
-        currentDay = session.day;
-        html += '<div class="day-group">';
-        html += '<div class="day-header">' + session.day + '</div>';
-      }
-
-      var status = window.TripCountdown.getSessionStatus(session);
-
-      html += '<div class="session-card">';
-      html += '<div class="session-status-dot ' + status + '" id="dot-' + session.id + '"></div>';
-      html += '<div class="session-info">';
-      html += '<div class="session-name">' + session.name + '</div>';
-      html += '<div class="session-time">' + window.TripCountdown.formatSessionTime(session) + '</div>';
-      if (status === 'upcoming') {
-        html += '<div class="session-countdown-mini" id="countdown-' + session.id + '">';
-        html += window.TripCountdown.formatMiniCountdown(session.date);
-        html += '</div>';
-      }
-      html += '</div>';
-
-      var labels = { upcoming: 'Binnenkort', live: 'LIVE', completed: 'Klaar' };
-      html += '<div class="session-badge ' + status + '" id="status-' + session.id + '">' + labels[status] + '</div>';
-      html += '</div>';
-    });
-
-    if (currentDay) html += '</div>';
-
-    container.innerHTML = html;
   }
 
   /* ---------- Roadtrip Tab (was: Reis) ---------- */
