@@ -2111,3 +2111,98 @@ body::before {
   margin-top: 4px;
   border-top: 1px dashed rgba(255, 255, 255, 0.1);
 }
+
+/* ===== Group tab: Prediction status ===== */
+.person-pred-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  border: 1px solid transparent;
+}
+
+.person-pred-status--filled {
+  background: rgba(0, 210, 106, 0.08);
+  border-color: rgba(0, 210, 106, 0.25);
+  color: var(--accent-green);
+}
+
+.person-pred-status--empty {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.person-pred-status-icon {
+  font-size: 14px;
+}
+
+.person-pred-status-text {
+  font-weight: 600;
+}
+
+.person-pred-status-detail {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* ===== Group tab: Leaderboard ===== */
+.group-leaderboard {
+  background: linear-gradient(135deg, rgba(225, 6, 0, 0.08), rgba(225, 6, 0, 0.02));
+  border: 1px solid rgba(225, 6, 0, 0.3);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.group-leaderboard-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--f1-red);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.group-leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.group-leaderboard-row:last-child {
+  border-bottom: none;
+}
+
+.group-leaderboard-pos {
+  font-size: 18px;
+  min-width: 28px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.group-leaderboard-emoji {
+  font-size: 18px;
+}
+
+.group-leaderboard-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.group-leaderboard-score {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--f1-red);
+  font-size: 14px;
+}

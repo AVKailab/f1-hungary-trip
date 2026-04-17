@@ -245,8 +245,17 @@
     html += '</div>';
     html += '</div>';
 
-    // Prediction game (full)
-    html += renderAccordion('predictions', '\uD83C\uDFC6 Race Voorspelling', renderPredictionContent(), false);
+    // Prediction game — count filled-in predictions for a status bar
+    var predictions = appData.predictions || {};
+    var filledCount = 0;
+    appData.group.forEach(function (p) {
+      var pred = predictions[p.name];
+      if (pred && pred.p1 && pred.p2 && pred.p3) filledCount++;
+    });
+    var totalPeople = appData.group.length;
+    var statusLabel = '\uD83C\uDFC6 Race Voorspelling &nbsp;<span style="font-size:11px;color:var(--text-muted);font-weight:600">' + filledCount + '/' + totalPeople + ' ingevuld</span>';
+
+    html += renderAccordion('predictions', statusLabel, renderPredictionContent(), true);
 
     container.innerHTML = html;
     loadWeatherCard();
@@ -534,9 +543,6 @@
 
     // Hotel accordion
     html += renderAccordion('hotel', '\uD83C\uDFE8 Hotel', renderHotelContent(), false);
-
-    // Transport accordion
-    html += renderAccordion('transport', '\uD83D\uDE8C Transport Opties', renderTransportContent(), false);
 
     container.innerHTML = html;
     attachCircuitEventListeners();
@@ -1053,12 +1059,45 @@
     html += '<div class="section-title">\uD83D\uDC65 Onze Groep</div>';
 
     var tickets = window.TripData.TICKETS;
+    var predictions = appData.predictions || {};
+    var raceResult = appData.raceResult;
+    var hasResult = !!(raceResult && raceResult.p1 && raceResult.p2 && raceResult.p3);
+
+    // Leaderboard (shows after race result is entered)
+    if (hasResult && appData.group.length > 0) {
+      var scores = appData.group.map(function (person) {
+        var name = person.name || '';
+        var pred = predictions[name];
+        return {
+          name: name,
+          emoji: person.emoji || '\uD83D\uDC64',
+          score: calculateScore(pred, raceResult),
+          prediction: pred
+        };
+      });
+      scores.sort(function (a, b) { return b.score - a.score; });
+      var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+
+      html += '<div class="group-leaderboard">';
+      html += '<div class="group-leaderboard-title">\uD83C\uDFC6 Scorebord</div>';
+      scores.forEach(function (s, i) {
+        html += '<div class="group-leaderboard-row">';
+        html += '<span class="group-leaderboard-pos">' + (medals[i] || (i + 1) + '.') + '</span>';
+        html += '<span class="group-leaderboard-emoji">' + s.emoji + '</span>';
+        html += '<span class="group-leaderboard-name">' + escapeHTML(s.name) + '</span>';
+        html += '<span class="group-leaderboard-score">' + s.score + ' pt</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
 
     if (appData.group.length === 0) {
       html += '<div class="empty-state">Nog niemand toegevoegd.<br>Voeg je reisgenoten toe!</div>';
     } else {
       appData.group.forEach(function (person, i) {
         var seatNum = tickets.stoelen[i] || null;
+        var pred = predictions[person.name];
+        var predFilled = !!(pred && pred.p1 && pred.p2 && pred.p3);
 
         html += '<div class="person-card-full">';
 
@@ -1079,6 +1118,17 @@
           html += '</div>';
         }
 
+        // Prediction status
+        html += '<div class="person-pred-status person-pred-status--' + (predFilled ? 'filled' : 'empty') + '">';
+        if (predFilled) {
+          html += '<span class="person-pred-status-icon">\u2705</span>';
+          html += '<span class="person-pred-status-text">Voorspelling ingevuld</span>';
+          html += '<span class="person-pred-status-detail">\uD83E\uDD47 ' + escapeHTML(pred.p1) + ' &middot; \uD83E\uDD48 ' + escapeHTML(pred.p2) + ' &middot; \uD83E\uDD49 ' + escapeHTML(pred.p3) + '</span>';
+        } else {
+          html += '<span class="person-pred-status-icon">\u23F3</span>';
+          html += '<span class="person-pred-status-text">Nog geen voorspelling</span>';
+        }
+        html += '</div>';
 
         html += '</div>';
       });
