@@ -1884,6 +1884,273 @@ body::before {
   border-color: var(--f1-red);
 }
 
+/* ===== Prediction: Phase banner ===== */
+.prediction-phase {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+  border-left: 3px solid var(--f1-red);
+  background: var(--bg-tertiary);
+}
+
+.prediction-phase--open {
+  border-left-color: var(--accent-green);
+  background: rgba(0, 212, 99, 0.08);
+}
+
+.prediction-phase--closed {
+  border-left-color: var(--accent-yellow);
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.prediction-phase--result {
+  border-left-color: var(--f1-red);
+  background: rgba(225, 6, 0, 0.08);
+}
+
+.prediction-phase-hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.2px;
+}
+
+/* ===== Prediction: Device owner flow ===== */
+.prediction-owner-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.prediction-owner-badge strong {
+  color: var(--text-primary);
+}
+
+.prediction-owner-change {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-primary);
+  cursor: pointer;
+}
+
+.prediction-owner-change:hover,
+.prediction-owner-change:active {
+  border-color: var(--f1-red);
+  color: var(--text-primary);
+}
+
+.device-owner-picker {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  margin: var(--space-md) 0;
+  border: 1px solid var(--bg-tertiary);
+  text-align: center;
+}
+
+.device-owner-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: var(--space-xs);
+}
+
+.device-owner-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+.device-owner-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--space-sm);
+}
+
+.device-owner-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  background: var(--bg-tertiary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-primary);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.device-owner-btn:hover,
+.device-owner-btn:active {
+  border-color: var(--f1-red);
+  transform: translateY(-1px);
+}
+
+.device-owner-emoji {
+  font-size: 28px;
+}
+
+.device-owner-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ===== Prediction: Card states ===== */
+.prediction-card--me {
+  border: 2px solid var(--f1-red);
+  box-shadow: 0 0 0 2px var(--f1-red-glow);
+}
+
+.prediction-card--locked {
+  opacity: 0.92;
+  background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+}
+
+.prediction-me-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--f1-red);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.prediction-lock-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-green);
+  background: rgba(0, 212, 99, 0.12);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.prediction-status-chip {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-yellow);
+  background: rgba(255, 215, 0, 0.1);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.prediction-status-chip--empty {
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
+/* ===== Prediction: Submit button ===== */
+.prediction-submit-btn {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-sm);
+  padding: 12px;
+  background: var(--f1-red);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-primary);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.prediction-submit-btn:hover:not(:disabled),
+.prediction-submit-btn:active:not(:disabled) {
+  background: var(--f1-red-dark);
+  transform: translateY(-1px);
+}
+
+.prediction-submit-btn:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ===== Prediction: Readonly picks ===== */
+.prediction-readonly {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.prediction-pick-ro {
+  text-align: center;
+  padding: var(--space-sm) 4px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border-top: 2px solid var(--bg-tertiary);
+}
+
+.prediction-pick-ro--exact {
+  border-top-color: var(--accent-green);
+  background: rgba(0, 212, 99, 0.08);
+}
+
+.prediction-pick-ro--close {
+  border-top-color: var(--accent-yellow);
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.prediction-pick-ro--miss {
+  border-top-color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.prediction-pick-driver {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+/* ===== Prediction: Hidden / miss messages ===== */
+.prediction-hidden-msg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-top: var(--space-xs);
+}
+
+.prediction-hidden-msg--miss {
+  color: var(--text-muted);
+  border-left: 3px solid var(--text-muted);
+  font-style: normal;
+}
+
 /* Leaderboard */
 .leaderboard {
   margin-top: var(--space-md);

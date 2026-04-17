@@ -55,8 +55,11 @@
     });
   }
 
-  /* Merge remote predictions into local: prefer the most-recently-updated
-     per person. Each prediction object may carry _updated timestamp. */
+  /* Merge remote predictions into local. Rules:
+     1. A LOCKED prediction is immutable — once locked, the locked version
+        always wins (earliest lockedAt if both sides locked).
+     2. If only one side is locked, that one wins regardless of timestamps.
+     3. Neither side locked: use _updated timestamp (newest wins). */
   function mergePredictions(localPreds, remotePreds) {
     localPreds = localPreds || {};
     remotePreds = remotePreds || {};
@@ -70,6 +73,19 @@
       var r = remotePreds[name];
       if (!l) { merged[name] = r; return; }
       if (!r) { merged[name] = l; return; }
+
+      // Lock rules: locked entries are immutable
+      if (l.locked && !r.locked) { merged[name] = l; return; }
+      if (r.locked && !l.locked) { merged[name] = r; return; }
+      if (l.locked && r.locked) {
+        // Both locked — keep the one that locked first (can't re-lock)
+        var ll = l.lockedAt || 0;
+        var rl = r.lockedAt || 0;
+        merged[name] = (ll <= rl && ll > 0) ? l : r;
+        return;
+      }
+
+      // Neither locked — newest wins
       var lu = l._updated || 0;
       var ru = r._updated || 0;
       merged[name] = (ru > lu) ? r : l;
