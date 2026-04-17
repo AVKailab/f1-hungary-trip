@@ -171,10 +171,45 @@
     }
   }
 
+  function detectStandalonePWA() {
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    var isStandalone = window.navigator.standalone === true ||
+                       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    return { isIOS: isIOS, isStandalone: isStandalone };
+  }
+
+  function requestMicPermission(callback) {
+    // Explicitly ask for mic permission — this triggers the prompt
+    // on devices where recognition.start() silently fails
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return callback(null); // proceed without explicit request
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      // Stop tracks immediately — we only wanted the permission
+      stream.getTracks().forEach(function (t) { t.stop(); });
+      callback(null);
+    }).catch(function (err) {
+      callback(err);
+    });
+  }
+
   function startVoiceInput() {
+    // IMMEDIATE feedback so you know the tap was registered
+    setVoiceStatus('\uD83C\uDFA4 Microfoon starten\u2026', 'working');
+
+    // iOS PWA standalone-mode check — SpeechRecognition is blocked
+    // when the app runs as "Add to Home Screen" on iOS Safari
+    var pwa = detectStandalonePWA();
+    if (pwa.isIOS && pwa.isStandalone) {
+      setVoiceStatus('\u26A0\uFE0F Stemherkenning werkt niet in PWA-modus op iOS. Open de app in Safari browser.', 'error');
+      setTimeout(function () { setVoiceStatus('', ''); }, 6000);
+      return;
+    }
+
     var SR = getSpeechRecognition();
     if (!SR) {
-      alert('Stemherkenning wordt niet ondersteund op dit apparaat.\nTip: gebruik Chrome op Android of Safari op iOS 14.5+');
+      setVoiceStatus('\u26A0\uFE0F Stemherkenning niet ondersteund. Gebruik Chrome (Android) of Safari (iOS 14.5+)', 'error');
+      setTimeout(function () { setVoiceStatus('', ''); }, 5000);
       return;
     }
 
@@ -187,10 +222,23 @@
     // Stop any ongoing Hungarian speech before listening
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
+    // First make sure the mic permission prompt has appeared
+    requestMicPermission(function (permErr) {
+      if (permErr) {
+        setVoiceStatus('\u26A0\uFE0F Microfoon toegang geweigerd. Geef toestemming in de browserinstellingen.', 'error');
+        setTimeout(function () { setVoiceStatus('', ''); }, 6000);
+        return;
+      }
+      _actuallyStartRecognition(SR);
+    });
+  }
+
+  function _actuallyStartRecognition(SR) {
     try {
       recognition = new SR();
     } catch (e) {
-      setVoiceStatus('\u26A0\uFE0F Kon microfoon niet starten', 'error');
+      setVoiceStatus('\u26A0\uFE0F Kon microfoon niet starten: ' + (e.message || e), 'error');
+      setTimeout(function () { setVoiceStatus('', ''); }, 5000);
       return;
     }
 
@@ -199,9 +247,21 @@
     recognition.continuous = false;
     recognition.maxAlternatives = 1;
 
+    // Watchdog — on iOS Safari, recognition can silently fail to fire onstart
+    var startedFired = false;
+    var watchdog = setTimeout(function () {
+      if (!startedFired) {
+        setVoiceStatus('\u26A0\uFE0F Microfoon reageert niet. Check instellingen of probeer opnieuw.', 'error');
+        setTimeout(function () { setVoiceStatus('', ''); }, 5000);
+        try { recognition.abort(); } catch (e) {}
+      }
+    }, 4000);
+
     var finalTranscript = '';
 
     recognition.onstart = function () {
+      startedFired = true;
+      clearTimeout(watchdog);
       isListening = true;
       setMicListening(true);
       setVoiceStatus('\uD83C\uDFA4 Luisteren\u2026 spreek nu', 'listening');
@@ -222,6 +282,8 @@
     };
 
     recognition.onerror = function (event) {
+      startedFired = true; // prevent watchdog
+      clearTimeout(watchdog);
       isListening = false;
       setMicListening(false);
       var msg = 'Fout: ' + event.error;
@@ -229,8 +291,9 @@
       else if (event.error === 'not-allowed') msg = '\u26A0\uFE0F Microfoon toegang geweigerd';
       else if (event.error === 'audio-capture') msg = '\u26A0\uFE0F Geen microfoon gevonden';
       else if (event.error === 'network') msg = '\u26A0\uFE0F Netwerk vereist voor stemherkenning';
+      else if (event.error === 'service-not-allowed') msg = '\u26A0\uFE0F Stemherkenning geblokkeerd. Check browserinstellingen.';
       setVoiceStatus(msg, 'error');
-      setTimeout(function () { setVoiceStatus('', ''); }, 3000);
+      setTimeout(function () { setVoiceStatus('', ''); }, 4000);
     };
 
     recognition.onend = function () {
