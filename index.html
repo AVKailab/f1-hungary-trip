@@ -107,6 +107,45 @@
     </button>
   </nav>
 
+  <!-- Translate FAB -->
+  <button id="translate-fab" class="translate-fab" title="Vertaal naar Hongaars" aria-label="Vertaal">
+    <span class="translate-fab-icon">&#x1F5E3;&#xFE0F;</span>
+    <span class="translate-fab-label">HU</span>
+  </button>
+
+  <!-- Translate Modal -->
+  <div id="translate-modal" class="translate-modal" role="dialog" aria-modal="true" aria-labelledby="translate-title">
+    <div id="translate-backdrop" class="translate-backdrop"></div>
+    <div class="translate-sheet">
+      <div class="translate-header">
+        <div class="translate-header-title" id="translate-title">
+          <span class="translate-flag">&#x1F1F3;&#x1F1F1; &rarr; &#x1F1ED;&#x1F1FA;</span>
+          <span>Vertaal</span>
+        </div>
+        <button id="translate-close" class="translate-close" aria-label="Sluiten">&times;</button>
+      </div>
+
+      <div class="translate-body">
+        <label class="translate-label" for="translate-input">Wat wil je zeggen? (Nederlands)</label>
+        <textarea id="translate-input" class="translate-input" rows="2" placeholder="Bijv. Twee bier, alstublieft"></textarea>
+        <button id="translate-btn" class="translate-btn">Vertaal</button>
+
+        <div id="translate-result" class="translate-result">
+          <div class="translate-result-label">Hongaars</div>
+          <div id="translate-result-text" class="translate-result-text"></div>
+          <div class="translate-result-actions">
+            <button id="translate-speak" class="translate-action-btn">&#x1F50A; Uitspraak</button>
+            <button id="translate-copy" class="translate-action-btn">&#x1F4CB; Kopieer</button>
+          </div>
+        </div>
+
+        <div id="translate-quick" class="translate-quick"></div>
+
+        <div id="translate-history" class="translate-history"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -117,6 +156,7 @@
   <script src="js/weather.js"></script>
   <script src="js/results.js"></script>
   <script src="js/sync.js"></script>
+  <script src="js/translate.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
