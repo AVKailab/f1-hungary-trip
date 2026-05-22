@@ -1,0 +1,12 @@
+name = "f1-hungary-translate"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Set these via `wrangler secret put`:
+#   wrangler secret put ANTHROPIC_API_KEY
+#
+# Vars (non-secret) can go here:
+[vars]
+# Comma-separated list of allowed origins (no trailing slash).
+# Use "*" during local dev; tighten to your GitHub Pages URL in production.
+ALLOWED_ORIGINS = "https://avkailab.github.io,http://localhost:3000,http://127.0.0.1:3000"

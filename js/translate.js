@@ -1,14 +1,24 @@
 /* ===== translate.js - NL -> HU vertaler =====
-   Gebruikt de gratis MyMemory API (1000 woorden/dag, geen key nodig,
-   CORS-enabled). Handige snel-zinnen zijn hardcoded zodat ze direct
-   uitspreekbaar zijn zonder netwerk-call. Geschiedenis wordt lokaal
-   opgeslagen (max 10 items). */
+   Twee-staps systeem:
+   1. Eerst checken of de zin in QUICK_PHRASES staat (instant, geen netwerk).
+   2. Anders: vraag het Cloudflare Worker (powered by Claude) — handelt
+      context, idiomen en formaliteit beter dan een woordenboek-API.
+   3. Als de Worker faalt: val terug op MyMemory (gratis, geen key nodig).
+
+   Configureer WORKER_URL hieronder na het deployen van `/worker`. Laat
+   leeg om de Worker over te slaan en alleen MyMemory te gebruiken. */
 (function () {
   'use strict';
 
   var HISTORY_KEY = 'f1Trip_translateHistory';
   var MAX_HISTORY = 10;
-  var API_BASE = 'https://api.mymemory.translated.net/get';
+
+  // Set this to your deployed Cloudflare Worker URL. See worker/README.md.
+  // Leave empty ('') to skip the Worker and use MyMemory only.
+  var WORKER_URL = '';
+
+  // Fallback translator (MyMemory): gratis, 1000 woorden/dag, geen key.
+  var FALLBACK_API = 'https://api.mymemory.translated.net/get';
 
   /* ---------- Pre-translated quick phrases ---------- */
   var QUICK_PHRASES = [
@@ -80,29 +90,62 @@
   }
 
   /* ---------- Translation API ---------- */
+
+  /* Try the Claude-powered Worker first. Returns a Promise that resolves
+     with the Hungarian translation, or rejects with an Error. */
+  function translateViaWorker(text) {
+    if (!WORKER_URL) return Promise.reject(new Error('Worker not configured'));
+
+    return fetch(WORKER_URL.replace(/\/$/, '') + '/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    }).then(function (res) {
+      return res.json().then(function (body) {
+        if (!res.ok) throw new Error(body.error || ('Worker ' + res.status));
+        if (!body.hungarian) throw new Error('Empty response');
+        return body.hungarian;
+      });
+    });
+  }
+
+  /* MyMemory fallback (no key, 1000 words/day quota). */
+  function translateViaFallback(text) {
+    var url = FALLBACK_API + '?q=' + encodeURIComponent(text) + '&langpair=nl|hu';
+    return fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('API fout (' + res.status + ')');
+      return res.json();
+    }).then(function (data) {
+      if (data && data.responseData && data.responseData.translatedText) {
+        return data.responseData.translatedText;
+      }
+      throw new Error('Geen vertaling ontvangen');
+    });
+  }
+
   function translate(text, callback) {
     text = (text || '').trim();
     if (!text) return callback('Geen tekst');
 
-    // Check if it's in quick phrases first (instant, no API needed)
+    // 1. Quick-phrase lookup (instant, no network)
     for (var i = 0; i < QUICK_PHRASES.length; i++) {
       if (QUICK_PHRASES[i].nl.toLowerCase() === text.toLowerCase()) {
         return callback(null, QUICK_PHRASES[i].hu);
       }
     }
 
-    var url = API_BASE + '?q=' + encodeURIComponent(text) + '&langpair=nl|hu';
-    fetch(url).then(function (res) {
-      if (!res.ok) throw new Error('API fout (' + res.status + ')');
-      return res.json();
-    }).then(function (data) {
-      if (data && data.responseData && data.responseData.translatedText) {
-        callback(null, data.responseData.translatedText);
-      } else {
-        callback('Geen vertaling ontvangen');
-      }
-    }).catch(function (err) {
-      callback('Kon niet vertalen: ' + (err.message || err));
+    // 2. Worker (Claude) -> 3. MyMemory fallback
+    translateViaWorker(text).then(function (hu) {
+      callback(null, hu);
+    }).catch(function (workerErr) {
+      // Worker not configured or unreachable — try fallback silently
+      translateViaFallback(text).then(function (hu) {
+        callback(null, hu);
+      }).catch(function (fbErr) {
+        // Surface the most useful error
+        var msg = (WORKER_URL ? workerErr.message : fbErr.message) || 'Vertaling mislukt';
+        callback('Kon niet vertalen: ' + msg);
+      });
     });
   }
 
