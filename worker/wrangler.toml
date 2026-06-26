@@ -10,3 +10,10 @@ compatibility_date = "2025-01-01"
 # Comma-separated list of allowed origins (no trailing slash).
 # Use "*" during local dev; tighten to your GitHub Pages URL in production.
 ALLOWED_ORIGINS = "https://avkailab.github.io,http://localhost:3000,http://127.0.0.1:3000"
+
+# KV namespace for shared prediction sync. Create it with:
+#   npx wrangler kv namespace create SYNC
+# then paste the returned id below.
+[[kv_namespaces]]
+binding = "SYNC"
+id = "0259f2aa57b745f2904cad1c82883b0e"

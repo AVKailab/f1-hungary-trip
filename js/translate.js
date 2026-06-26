@@ -5,17 +5,19 @@
       context, idiomen en formaliteit beter dan een woordenboek-API.
    3. Als de Worker faalt: val terug op MyMemory (gratis, geen key nodig).
 
-   Configureer WORKER_URL hieronder na het deployen van `/worker`. Laat
-   leeg om de Worker over te slaan en alleen MyMemory te gebruiken. */
+   Configureer de Worker URL in js/config.js na het deployen van `/worker`.
+   Laat leeg om de Worker over te slaan en alleen MyMemory te gebruiken. */
 (function () {
   'use strict';
 
   var HISTORY_KEY = 'f1Trip_translateHistory';
   var MAX_HISTORY = 10;
 
-  // Set this to your deployed Cloudflare Worker URL. See worker/README.md.
-  // Leave empty ('') to skip the Worker and use MyMemory only.
-  var WORKER_URL = '';
+  // Worker URL comes from js/config.js (window.F1_CONFIG.workerUrl).
+  // Leave it empty there to skip the Worker and use MyMemory only.
+  function workerUrl() {
+    return (window.F1_CONFIG && window.F1_CONFIG.workerUrl) || '';
+  }
 
   // Fallback translator (MyMemory): gratis, 1000 woorden/dag, geen key.
   var FALLBACK_API = 'https://api.mymemory.translated.net/get';
@@ -94,9 +96,10 @@
   /* Try the Claude-powered Worker first. Returns a Promise that resolves
      with the Hungarian translation, or rejects with an Error. */
   function translateViaWorker(text) {
-    if (!WORKER_URL) return Promise.reject(new Error('Worker not configured'));
+    var base = workerUrl();
+    if (!base) return Promise.reject(new Error('Worker not configured'));
 
-    return fetch(WORKER_URL.replace(/\/$/, '') + '/translate', {
+    return fetch(base.replace(/\/$/, '') + '/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: text })
@@ -143,7 +146,7 @@
         callback(null, hu);
       }).catch(function (fbErr) {
         // Surface the most useful error
-        var msg = (WORKER_URL ? workerErr.message : fbErr.message) || 'Vertaling mislukt';
+        var msg = (workerUrl() ? workerErr.message : fbErr.message) || 'Vertaling mislukt';
         callback('Kon niet vertalen: ' + msg);
       });
     });

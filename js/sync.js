@@ -1,17 +1,23 @@
 /* ===== sync.js - Shared predictions & race result sync ===== */
-/* Everybody shares the SAME jsonblob. No room codes. Predictions are
-   keyed per person name, so they merge cleanly across devices. */
+/* Everybody shares ONE Cloudflare Worker (KV-backed). No room codes.
+   Predictions are keyed per person name, so they merge cleanly across
+   devices. The Worker also merges server-side as a safety net.
+
+   Set the Worker URL in js/config.js. If it is empty, sync is disabled
+   and the app works in local-only mode (no crashes). */
 (function () {
   'use strict';
 
   /* ---------- Configuration ---------- */
-  var MASTER_BLOB_ID = '019d9a9e-925a-7849-bdc4-e2a1868b7991';
-  var JSONBLOB_BASE = 'https://jsonblob.com/api/jsonBlob';
-  var CORS_PROXY = 'https://corsproxy.io/?';
   var POLL_INTERVAL = 10000; // 10 seconds
 
-  function blobUrl() {
-    return CORS_PROXY + encodeURIComponent(JSONBLOB_BASE + '/' + MASTER_BLOB_ID);
+  function workerBase() {
+    var url = (window.F1_CONFIG && window.F1_CONFIG.workerUrl) || '';
+    return url.replace(/\/$/, '');
+  }
+
+  function syncEnabled() {
+    return !!workerBase();
   }
 
   /* ---------- State ---------- */
@@ -27,29 +33,38 @@
     try { return JSON.stringify(obj || {}); } catch (e) { return ''; }
   }
 
+  /* GET the shared state from the Worker. */
   function fetchRemote(callback) {
-    fetch(blobUrl(), {
+    if (!syncEnabled()) {
+      return callback(null, { predictions: {}, raceResult: null });
+    }
+    fetch(workerBase() + '/sync', {
       headers: { 'Accept': 'application/json' }
     }).then(function (res) {
-      // 404 = blob expired or never created; treat as empty so app keeps working
-      if (res.status === 404) return { predictions: {}, raceResult: null };
       if (!res.ok) throw new Error('Sync error (' + res.status + ')');
       return res.json();
     }).then(function (data) {
-      callback(null, data || {});
+      callback(null, data || { predictions: {}, raceResult: null });
     }).catch(function (err) {
       callback(err.message || 'Kon data niet ophalen');
     });
   }
 
+  /* POST local state to the Worker; it merges server-side and returns the
+     canonical merged state. */
   function saveRemote(data, callback) {
-    fetch(blobUrl(), {
-      method: 'PUT',
+    if (!syncEnabled()) return callback(null, data);
+    fetch(workerBase() + '/sync', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify({ predictions: data.predictions || {}, raceResult: data.raceResult || null })
     }).then(function (res) {
-      if (!res.ok) throw new Error('Opslaan mislukt (' + res.status + ')');
-      callback(null);
+      return res.json().then(function (body) {
+        if (!res.ok) throw new Error(body.error || ('Opslaan mislukt (' + res.status + ')'));
+        return body;
+      });
+    }).then(function (merged) {
+      callback(null, merged);
     }).catch(function (err) {
       callback(err.message || 'Kon data niet opslaan');
     });
@@ -138,42 +153,39 @@
     });
   }
 
-  /* Push local predictions + raceResult to remote (merge with remote first to
-     avoid clobbering other people's predictions) */
+  /* Push local predictions + raceResult to the Worker. The Worker merges
+     server-side and returns the canonical state, which we adopt locally. */
   function pushLocal(callback) {
+    if (!syncEnabled()) { if (callback) callback(null); return; }
     pushCooldownUntil = Date.now() + 8000;
 
-    fetchRemote(function (err, remote) {
-      if (err) {
-        pushCooldownUntil = 0;
-        if (callback) callback(err);
-        return;
-      }
+    var localData = window.TripStorage.loadData();
 
-      var localData = window.TripStorage.loadData();
-      var mergedPreds = mergePredictions(remote.predictions || {}, localData.predictions || {});
-
-      // Race result: local wins on push (user just clicked Save)
-      var newResult = (localData.raceResult !== undefined) ? localData.raceResult : (remote.raceResult || null);
-
-      remote.predictions = mergedPreds;
-      remote.raceResult = newResult;
-      remote._updated = Date.now();
-
-      saveRemote(remote, function (saveErr) {
+    saveRemote(
+      { predictions: localData.predictions || {}, raceResult: localData.raceResult || null },
+      function (saveErr, merged) {
         if (saveErr) {
           pushCooldownUntil = 0;
           if (callback) callback(saveErr);
           return;
         }
-        // Also update local with merged predictions so we're in sync
-        localData.predictions = mergedPreds;
-        localData.raceResult = newResult;
-        window.TripStorage.saveData(localData);
+        // Merge the canonical server state back into CURRENT local (not the
+        // snapshot we sent). This prevents an in-flight push from clobbering
+        // newer local edits made while the request was on the wire.
+        var fresh = window.TripStorage.loadData();
+        var serverPreds = (merged && merged.predictions) || {};
+        fresh.predictions = mergePredictions(fresh.predictions, serverPreds);
+        // Race result: prefer a complete result from either side
+        var serverResult = (merged && merged.raceResult) || null;
+        if (serverResult && serverResult.p1 && serverResult.p2 && serverResult.p3) {
+          fresh.raceResult = serverResult;
+        }
+        window.TripStorage.saveData(fresh);
         pushCooldownUntil = Date.now() + 2000;
         if (callback) callback(null);
-      });
-    });
+        if (onUpdateCallback) onUpdateCallback();
+      }
+    );
   }
 
   /* ---------- Polling ---------- */
@@ -181,6 +193,7 @@
   function startPolling(onUpdate) {
     onUpdateCallback = onUpdate || null;
     stopPolling();
+    if (!syncEnabled()) return; // local-only mode
     pullAndMerge();
     pollTimer = setInterval(function () {
       pullAndMerge();

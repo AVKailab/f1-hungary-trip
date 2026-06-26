@@ -5,7 +5,7 @@
    Map tiles (OpenStreetMap): cache-first so previously-viewed areas
    keep working without signal. */
 
-const CACHE_VERSION = 'f1-hungary-v2';
+const CACHE_VERSION = 'f1-hungary-v3';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 
@@ -14,6 +14,7 @@ const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
   './css/style.css',
+  './js/config.js',
   './js/data.js',
   './js/storage.js',
   './js/countdown.js',
@@ -57,12 +58,11 @@ self.addEventListener('activate', (event) => {
 
 function isApiRequest(url) {
   return (
-    url.hostname.includes('jsonblob.com') ||
+    url.hostname.includes('workers.dev') ||
     url.hostname.includes('mymemory.translated.net') ||
     url.hostname.includes('open-meteo.com') ||
     url.hostname.includes('api.jolpi.ca') ||
-    url.hostname.includes('ergast.com') ||
-    url.hostname.includes('corsproxy.io')
+    url.hostname.includes('ergast.com')
   );
 }
 

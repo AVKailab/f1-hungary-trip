@@ -1,15 +1,21 @@
 /* f1-hungary-translate Worker
- * Dutch -> Hungarian translation proxy for the F1 trip app.
+ * Backend for the F1 trip app: translation + shared prediction sync.
  *
  * Routes:
- *   POST /translate   { "text": "..." } -> { "hungarian": "..." }
- *   GET  /health       -> { "ok": true }
+ *   POST /translate   { "text": "..." }                      -> { "hungarian": "..." }
+ *   GET  /sync                                               -> { predictions, raceResult }
+ *   POST /sync        { predictions, raceResult }            -> merged { predictions, raceResult }
+ *   GET  /health                                             -> { ok: true }
  *
  * Why a Worker?
- *   The Anthropic API key cannot live in the frontend (visible to anyone
- *   inspecting the page). The Worker holds the key as a secret and only
- *   accepts requests from configured origins.
+ *   1. The Anthropic API key cannot live in the frontend (visible to anyone
+ *      inspecting the page). The Worker holds the key as a secret.
+ *   2. Prediction sync needs a persistent, CORS-friendly store. The previous
+ *      jsonblob.com + corsproxy.io setup broke (proxy now paywalled, blobs
+ *      expire after 24h). Cloudflare KV is persistent and free for our scale.
  */
+
+const SYNC_KEY = 'shared-state-v1'; // KV key holding the whole shared blob
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-haiku-4-5';
@@ -96,6 +102,62 @@ async function translateWithClaude(text, apiKey) {
   return block.text.trim();
 }
 
+/* ---------- Prediction sync (KV-backed) ---------- */
+
+/* Merge two prediction maps with the same locked-wins rules the client uses:
+   1. A LOCKED prediction is immutable — locked version always wins (earliest
+      lockedAt if both sides locked).
+   2. If only one side is locked, that one wins regardless of timestamps.
+   3. Neither locked: newest _updated wins. */
+function mergePredictions(a, b) {
+  a = a || {};
+  b = b || {};
+  const merged = {};
+  const names = {};
+  Object.keys(a).forEach(n => { names[n] = true; });
+  Object.keys(b).forEach(n => { names[n] = true; });
+
+  Object.keys(names).forEach(name => {
+    const l = a[name];
+    const r = b[name];
+    if (!l) { merged[name] = r; return; }
+    if (!r) { merged[name] = l; return; }
+
+    if (l.locked && !r.locked) { merged[name] = l; return; }
+    if (r.locked && !l.locked) { merged[name] = r; return; }
+    if (l.locked && r.locked) {
+      const ll = l.lockedAt || 0;
+      const rl = r.lockedAt || 0;
+      merged[name] = (ll <= rl && ll > 0) ? l : r;
+      return;
+    }
+    const lu = l._updated || 0;
+    const ru = r._updated || 0;
+    merged[name] = (ru > lu) ? r : l;
+  });
+  return merged;
+}
+
+async function readState(env) {
+  if (!env.SYNC) return { predictions: {}, raceResult: null };
+  const raw = await env.SYNC.get(SYNC_KEY);
+  if (!raw) return { predictions: {}, raceResult: null };
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      predictions: parsed.predictions || {},
+      raceResult: (parsed.raceResult !== undefined) ? parsed.raceResult : null
+    };
+  } catch (e) {
+    return { predictions: {}, raceResult: null };
+  }
+}
+
+async function writeState(env, state) {
+  if (!env.SYNC) throw new Error('SYNC KV namespace not bound');
+  await env.SYNC.put(SYNC_KEY, JSON.stringify(state));
+}
+
 /* ---------- Router ---------- */
 export default {
   async fetch(request, env) {
@@ -110,7 +172,47 @@ export default {
 
     // Health check
     if (url.pathname === '/health' && request.method === 'GET') {
-      return jsonResponse({ ok: true, model: MODEL }, 200, cors);
+      return jsonResponse({ ok: true, model: MODEL, sync: !!env.SYNC }, 200, cors);
+    }
+
+    // Sync: read the shared state (predictions + raceResult)
+    if (url.pathname === '/sync' && request.method === 'GET') {
+      try {
+        const state = await readState(env);
+        return jsonResponse(state, 200, cors);
+      } catch (e) {
+        return jsonResponse({ error: e.message || 'Sync read failed' }, 502, cors);
+      }
+    }
+
+    // Sync: merge an incoming partial state into the stored state
+    if (url.pathname === '/sync' && request.method === 'POST') {
+      let payload;
+      try {
+        payload = await request.json();
+      } catch (e) {
+        return jsonResponse({ error: 'Invalid JSON body' }, 400, cors);
+      }
+
+      try {
+        const current = await readState(env);
+        const incomingPreds = (payload && payload.predictions) || {};
+        const mergedPreds = mergePredictions(current.predictions, incomingPreds);
+
+        // Race result: accept incoming if it is a complete result. Once a
+        // result exists it never gets wiped by an empty incoming payload.
+        let raceResult = current.raceResult;
+        const inc = payload && payload.raceResult;
+        if (inc && inc.p1 && inc.p2 && inc.p3) {
+          raceResult = inc;
+        }
+
+        const next = { predictions: mergedPreds, raceResult: raceResult };
+        await writeState(env, next);
+        return jsonResponse(next, 200, cors);
+      } catch (e) {
+        return jsonResponse({ error: e.message || 'Sync write failed' }, 502, cors);
+      }
     }
 
     // Translation endpoint
