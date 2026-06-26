@@ -5,7 +5,7 @@
    Map tiles (OpenStreetMap): cache-first so previously-viewed areas
    keep working without signal. */
 
-const CACHE_VERSION = 'f1-hungary-v3';
+const CACHE_VERSION = 'f1-hungary-v4';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 

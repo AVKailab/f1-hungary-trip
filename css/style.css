@@ -1914,6 +1914,47 @@ body::before {
   border-color: var(--f1-red);
 }
 
+/* ===== Prediction: Race selector ===== */
+.prediction-race-select {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.prediction-race-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.prediction-race-dropdown {
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-family: var(--font-primary);
+  font-size: 16px; /* >= 16px prevents iOS auto-zoom */
+  font-weight: 600;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.prediction-race-dropdown:focus {
+  border-color: var(--f1-red);
+}
+
+.season-standings {
+  margin-top: var(--space-md);
+}
+
 /* ===== Prediction: Phase banner ===== */
 .prediction-phase {
   display: flex;

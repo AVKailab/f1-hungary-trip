@@ -57,7 +57,7 @@
     fetch(workerBase() + '/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ predictions: data.predictions || {}, raceResult: data.raceResult || null })
+      body: JSON.stringify({ predictionsByRace: data.predictionsByRace || {}, raceResultsByRace: data.raceResultsByRace || {} })
     }).then(function (res) {
       return res.json().then(function (body) {
         if (!res.ok) throw new Error(body.error || ('Opslaan mislukt (' + res.status + ')'));
@@ -108,6 +108,41 @@
     return merged;
   }
 
+  /* Merge nested predictionsByRace: { round: { name: pred } } — per round,
+     per person, with the locked-wins rules above. */
+  function mergePredictionsByRace(a, b) {
+    a = a || {};
+    b = b || {};
+    var rounds = {};
+    Object.keys(a).forEach(function (r) { rounds[r] = true; });
+    Object.keys(b).forEach(function (r) { rounds[r] = true; });
+    var out = {};
+    Object.keys(rounds).forEach(function (r) {
+      out[r] = mergePredictions(a[r], b[r]);
+    });
+    return out;
+  }
+
+  /* Merge raceResultsByRace: { round: {p1,p2,p3} } — keep a complete result
+     once it exists; never wiped by an incomplete/absent side. */
+  function mergeResultsByRace(a, b) {
+    a = a || {};
+    b = b || {};
+    var rounds = {};
+    Object.keys(a).forEach(function (r) { rounds[r] = true; });
+    Object.keys(b).forEach(function (r) { rounds[r] = true; });
+    var out = {};
+    Object.keys(rounds).forEach(function (r) {
+      var ra = a[r], rb = b[r];
+      var aok = ra && ra.p1 && ra.p2 && ra.p3;
+      var bok = rb && rb.p1 && rb.p2 && rb.p3;
+      if (aok && !bok) out[r] = ra;
+      else if (bok && !aok) out[r] = rb;
+      else if (aok && bok) out[r] = ((ra._updated || 0) >= (rb._updated || 0)) ? ra : rb;
+    });
+    return out;
+  }
+
   /* ---------- Sync operations ---------- */
 
   /* Pull from remote, merge predictions + raceResult, save locally if changed */
@@ -124,29 +159,23 @@
       }
 
       var localData = window.TripStorage.loadData();
-      var remotePreds = remote.predictions || {};
-      var remoteResult = (remote.raceResult !== undefined) ? remote.raceResult : null;
+      var remotePreds = remote.predictionsByRace || {};
+      var remoteResults = remote.raceResultsByRace || {};
 
-      var mergedPreds = mergePredictions(localData.predictions, remotePreds);
-      var predsChanged = hashOf(mergedPreds) !== hashOf(localData.predictions);
-      var resultChanged = hashOf(remoteResult) !== hashOf(localData.raceResult || null);
+      var mergedPreds = mergePredictionsByRace(localData.predictionsByRace, remotePreds);
+      var mergedResults = mergeResultsByRace(localData.raceResultsByRace, remoteResults);
 
-      // Race result: take remote if remote is set and differs (global last-write-wins).
-      // If local has a result but remote doesn't, keep local (it will be pushed next).
-      var newResult = localData.raceResult || null;
-      if (remoteResult && resultChanged) {
-        newResult = remoteResult;
-      }
-
-      var changed = predsChanged || (hashOf(newResult) !== hashOf(localData.raceResult || null));
+      var predsChanged = hashOf(mergedPreds) !== hashOf(localData.predictionsByRace || {});
+      var resultChanged = hashOf(mergedResults) !== hashOf(localData.raceResultsByRace || {});
+      var changed = predsChanged || resultChanged;
 
       if (changed) {
-        localData.predictions = mergedPreds;
-        localData.raceResult = newResult;
+        localData.predictionsByRace = mergedPreds;
+        localData.raceResultsByRace = mergedResults;
         window.TripStorage.saveData(localData);
       }
 
-      lastRemoteHash = hashOf({ p: remotePreds, r: remoteResult });
+      lastRemoteHash = hashOf({ p: remotePreds, r: remoteResults });
 
       if (callback) callback(null, changed);
       if (changed && onUpdateCallback) onUpdateCallback();
@@ -162,7 +191,7 @@
     var localData = window.TripStorage.loadData();
 
     saveRemote(
-      { predictions: localData.predictions || {}, raceResult: localData.raceResult || null },
+      { predictionsByRace: localData.predictionsByRace || {}, raceResultsByRace: localData.raceResultsByRace || {} },
       function (saveErr, merged) {
         if (saveErr) {
           pushCooldownUntil = 0;
@@ -173,13 +202,8 @@
         // snapshot we sent). This prevents an in-flight push from clobbering
         // newer local edits made while the request was on the wire.
         var fresh = window.TripStorage.loadData();
-        var serverPreds = (merged && merged.predictions) || {};
-        fresh.predictions = mergePredictions(fresh.predictions, serverPreds);
-        // Race result: prefer a complete result from either side
-        var serverResult = (merged && merged.raceResult) || null;
-        if (serverResult && serverResult.p1 && serverResult.p2 && serverResult.p3) {
-          fresh.raceResult = serverResult;
-        }
+        fresh.predictionsByRace = mergePredictionsByRace(fresh.predictionsByRace, (merged && merged.predictionsByRace) || {});
+        fresh.raceResultsByRace = mergeResultsByRace(fresh.raceResultsByRace, (merged && merged.raceResultsByRace) || {});
         window.TripStorage.saveData(fresh);
         pushCooldownUntil = Date.now() + 2000;
         if (callback) callback(null);

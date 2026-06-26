@@ -138,18 +138,50 @@ function mergePredictions(a, b) {
   return merged;
 }
 
+/* Merge nested predictionsByRace: { round: { name: pred } }. */
+function mergePredictionsByRace(a, b) {
+  a = a || {};
+  b = b || {};
+  const rounds = {};
+  Object.keys(a).forEach(r => { rounds[r] = true; });
+  Object.keys(b).forEach(r => { rounds[r] = true; });
+  const out = {};
+  Object.keys(rounds).forEach(r => { out[r] = mergePredictions(a[r], b[r]); });
+  return out;
+}
+
+/* Merge raceResultsByRace: keep a complete result once it exists. */
+function mergeResultsByRace(a, b) {
+  a = a || {};
+  b = b || {};
+  const rounds = {};
+  Object.keys(a).forEach(r => { rounds[r] = true; });
+  Object.keys(b).forEach(r => { rounds[r] = true; });
+  const out = {};
+  Object.keys(rounds).forEach(r => {
+    const ra = a[r], rb = b[r];
+    const aok = ra && ra.p1 && ra.p2 && ra.p3;
+    const bok = rb && rb.p1 && rb.p2 && rb.p3;
+    if (aok && !bok) out[r] = ra;
+    else if (bok && !aok) out[r] = rb;
+    else if (aok && bok) out[r] = ((ra._updated || 0) >= (rb._updated || 0)) ? ra : rb;
+  });
+  return out;
+}
+
 async function readState(env) {
-  if (!env.SYNC) return { predictions: {}, raceResult: null };
+  const empty = { predictionsByRace: {}, raceResultsByRace: {} };
+  if (!env.SYNC) return empty;
   const raw = await env.SYNC.get(SYNC_KEY);
-  if (!raw) return { predictions: {}, raceResult: null };
+  if (!raw) return empty;
   try {
     const parsed = JSON.parse(raw);
     return {
-      predictions: parsed.predictions || {},
-      raceResult: (parsed.raceResult !== undefined) ? parsed.raceResult : null
+      predictionsByRace: parsed.predictionsByRace || {},
+      raceResultsByRace: parsed.raceResultsByRace || {}
     };
   } catch (e) {
-    return { predictions: {}, raceResult: null };
+    return empty;
   }
 }
 
@@ -196,18 +228,14 @@ export default {
 
       try {
         const current = await readState(env);
-        const incomingPreds = (payload && payload.predictions) || {};
-        const mergedPreds = mergePredictions(current.predictions, incomingPreds);
-
-        // Race result: accept incoming if it is a complete result. Once a
-        // result exists it never gets wiped by an empty incoming payload.
-        let raceResult = current.raceResult;
-        const inc = payload && payload.raceResult;
-        if (inc && inc.p1 && inc.p2 && inc.p3) {
-          raceResult = inc;
-        }
-
-        const next = { predictions: mergedPreds, raceResult: raceResult };
+        const next = {
+          predictionsByRace: mergePredictionsByRace(
+            current.predictionsByRace, (payload && payload.predictionsByRace) || {}
+          ),
+          raceResultsByRace: mergeResultsByRace(
+            current.raceResultsByRace, (payload && payload.raceResultsByRace) || {}
+          )
+        };
         await writeState(env, next);
         return jsonResponse(next, 200, cors);
       } catch (e) {

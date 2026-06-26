@@ -37,48 +37,50 @@
     }
   });
 
-  /* ---------- Auto-populate race result from F1 API ---------- */
+  /* ---------- Auto-populate race results from F1 API ----------
+     Fills raceResultsByRace[round] for every completed race in our season
+     game that doesn't have a result yet. */
   function checkAndAutoFillRaceResult() {
     if (!window.F1Results || typeof window.F1Results.getResults !== 'function') return;
-
-    appData = window.TripStorage.loadData();
-    // If already have a race result, nothing to do
-    if (appData.raceResult && appData.raceResult.p1 && appData.raceResult.p2 && appData.raceResult.p3) {
-      return;
-    }
 
     window.F1Results.getResults(function (err, races) {
       if (err || !races) return;
 
-      // Find the Hungarian GP 2026 in the results list
-      var hungarianGP = races.find(function (r) {
-        var name = (r.raceName || '').toLowerCase();
-        var country = (r.Circuit && r.Circuit.Location && r.Circuit.Location.country) || '';
-        return name.indexOf('hungar') >= 0 || country === 'Hungary';
+      // Which rounds are part of our prediction game
+      var seasonRounds = {};
+      (window.TripData.SEASON_RACES || []).forEach(function (r) {
+        seasonRounds[String(r.round)] = true;
       });
 
-      if (!hungarianGP || !hungarianGP.Results || hungarianGP.Results.length < 3) return;
-
-      var top3 = hungarianGP.Results.slice(0, 3);
-      var raceResult = {
-        p1: top3[0].Driver.familyName,
-        p2: top3[1].Driver.familyName,
-        p3: top3[2].Driver.familyName,
-        source: 'auto',
-        _updated: Date.now()
-      };
-
       appData = window.TripStorage.loadData();
-      appData.raceResult = raceResult;
-      window.TripStorage.saveData(appData);
-      renderActiveTab();
+      if (!appData.raceResultsByRace) appData.raceResultsByRace = {};
 
-      // Push to cloud so everyone else gets the result too
-      if (window.TripSync && typeof window.TripSync.pushLocal === 'function') {
-        window.TripSync.pushLocal();
+      var changed = false;
+      races.forEach(function (race) {
+        var round = String(race.round);
+        if (!seasonRounds[round]) return;              // not in our game
+        if (appData.raceResultsByRace[round]) return;  // already have it
+        if (!race.Results || race.Results.length < 3) return;
+
+        var top3 = race.Results.slice(0, 3);
+        appData.raceResultsByRace[round] = {
+          p1: top3[0].Driver.familyName,
+          p2: top3[1].Driver.familyName,
+          p3: top3[2].Driver.familyName,
+          source: 'auto',
+          _updated: Date.now()
+        };
+        changed = true;
+        console.log('[F1] Auto-populated result for round ' + round + ':', appData.raceResultsByRace[round]);
+      });
+
+      if (changed) {
+        window.TripStorage.saveData(appData);
+        renderActiveTab();
+        if (window.TripSync && typeof window.TripSync.pushLocal === 'function') {
+          window.TripSync.pushLocal();
+        }
       }
-
-      console.log('[F1] Auto-populated race result:', raceResult);
     });
   }
 
@@ -289,15 +291,18 @@
     html += '</div>';
     html += '</div>';
 
-    // Prediction game — count filled-in predictions for a status bar
-    var predictions = appData.predictions || {};
-    var filledCount = 0;
+    // Season prediction game — label shows the next race + lock status
+    var nextRound = getNextUpcomingRound();
+    var nextRace = nextRound ? getRaceByRound(nextRound) : null;
+    var nextPreds = (appData.predictionsByRace && appData.predictionsByRace[nextRound]) || {};
+    var lockedCount = 0;
     appData.group.forEach(function (p) {
-      var pred = predictions[p.name];
-      if (pred && pred.p1 && pred.p2 && pred.p3) filledCount++;
+      var pred = nextPreds[p.name];
+      if (pred && pred.locked) lockedCount++;
     });
     var totalPeople = appData.group.length;
-    var statusLabel = '\uD83C\uDFC6 Race Voorspelling &nbsp;<span style="font-size:11px;color:var(--text-muted);font-weight:600">' + filledCount + '/' + totalPeople + ' ingevuld</span>';
+    var nextLabel = nextRace ? (raceFlag(nextRace.country) + ' ' + escapeHTML(nextRace.name)) : 'Seizoen';
+    var statusLabel = '\uD83C\uDFC6 Voorspelling \u2014 ' + nextLabel + ' &nbsp;<span style="font-size:11px;color:var(--text-muted);font-weight:600">' + lockedCount + '/' + totalPeople + ' ingeleverd</span>';
 
     html += renderAccordion('predictions', statusLabel, renderPredictionContent(), true);
 
@@ -1062,45 +1067,20 @@
     html += '<div class="section-title">\uD83D\uDC65 Onze Groep</div>';
 
     var tickets = window.TripData.TICKETS;
-    var predictions = appData.predictions || {};
-    var raceResult = appData.raceResult;
-    var hasResult = !!(raceResult && raceResult.p1 && raceResult.p2 && raceResult.p3);
-
-    // Leaderboard (shows after race result is entered)
-    if (hasResult && appData.group.length > 0) {
-      var scores = appData.group.map(function (person) {
-        var name = person.name || '';
-        var pred = predictions[name];
-        return {
-          name: name,
-          emoji: person.emoji || '\uD83D\uDC64',
-          score: calculateScore(pred, raceResult),
-          prediction: pred
-        };
-      });
-      scores.sort(function (a, b) { return b.score - a.score; });
-      var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
-
-      html += '<div class="group-leaderboard">';
-      html += '<div class="group-leaderboard-title">\uD83C\uDFC6 Scorebord</div>';
-      scores.forEach(function (s, i) {
-        html += '<div class="group-leaderboard-row">';
-        html += '<span class="group-leaderboard-pos">' + (medals[i] || (i + 1) + '.') + '</span>';
-        html += '<span class="group-leaderboard-emoji">' + s.emoji + '</span>';
-        html += '<span class="group-leaderboard-name">' + escapeHTML(s.name) + '</span>';
-        html += '<span class="group-leaderboard-score">' + s.score + ' pt</span>';
-        html += '</div>';
-      });
-      html += '</div>';
-    }
+    // Per-person status uses the NEXT race (locked = ingeleverd), zonder
+    // iemands picks te tonen v\u00F3\u00F3r de race. Het scorebord + seizoenstand
+    // staan in de voorspel-kaart op Home.
+    var grpNextRound = getNextUpcomingRound();
+    var grpNextRace = grpNextRound ? getRaceByRound(grpNextRound) : null;
+    var grpNextPreds = (appData.predictionsByRace && appData.predictionsByRace[grpNextRound]) || {};
 
     if (appData.group.length === 0) {
       html += '<div class="empty-state">Nog niemand toegevoegd.<br>Voeg je reisgenoten toe!</div>';
     } else {
       appData.group.forEach(function (person, i) {
         var seatNum = tickets.stoelen[i] || null;
-        var pred = predictions[person.name];
-        var predFilled = !!(pred && pred.p1 && pred.p2 && pred.p3);
+        var grpPred = grpNextPreds[person.name];
+        var grpSubmitted = !!(grpPred && grpPred.locked);
 
         html += '<div class="person-card-full">';
 
@@ -1121,15 +1101,15 @@
           html += '</div>';
         }
 
-        // Prediction status
-        html += '<div class="person-pred-status person-pred-status--' + (predFilled ? 'filled' : 'empty') + '">';
-        if (predFilled) {
-          html += '<span class="person-pred-status-icon">\u2705</span>';
-          html += '<span class="person-pred-status-text">Voorspelling ingevuld</span>';
-          html += '<span class="person-pred-status-detail">\uD83E\uDD47 ' + escapeHTML(pred.p1) + ' &middot; \uD83E\uDD48 ' + escapeHTML(pred.p2) + ' &middot; \uD83E\uDD49 ' + escapeHTML(pred.p3) + '</span>';
+        // Prediction status for the next race (no pick reveal)
+        var grpRaceName = grpNextRace ? grpNextRace.name : 'volgende race';
+        html += '<div class="person-pred-status person-pred-status--' + (grpSubmitted ? 'filled' : 'empty') + '">';
+        if (grpSubmitted) {
+          html += '<span class="person-pred-status-icon">\uD83D\uDD12</span>';
+          html += '<span class="person-pred-status-text">Ingeleverd voor ' + escapeHTML(grpRaceName) + '</span>';
         } else {
           html += '<span class="person-pred-status-icon">\u23F3</span>';
-          html += '<span class="person-pred-status-text">Nog geen voorspelling</span>';
+          html += '<span class="person-pred-status-text">Nog niet ingeleverd voor ' + escapeHTML(grpRaceName) + '</span>';
         }
         html += '</div>';
 
@@ -1292,20 +1272,47 @@
     // No persistent input listeners needed; custom costs are added via button
   }
 
-  /* ---------- Prediction Game helpers ---------- */
+  /* ---------- Prediction Game helpers (season-wide, per round) ---------- */
 
-  // Race start = deadline for submitting predictions
-  function getRaceStartTime() {
-    var race = window.TripData.RACE_SESSIONS[4]; // RACE session
-    return new Date(race.date).getTime();
+  // Which race round is currently shown in the picker. null = auto (next race).
+  var selectedRound = null;
+
+  function getSeasonRaces() {
+    return window.TripData.SEASON_RACES || [];
   }
 
-  function isPredictionDeadlinePassed() {
-    return Date.now() >= getRaceStartTime();
+  function getRaceByRound(round) {
+    var key = String(round);
+    return getSeasonRaces().filter(function (r) { return String(r.round) === key; })[0] || null;
   }
 
-  function formatDeadlineCountdown() {
-    var diff = getRaceStartTime() - Date.now();
+  // Race start (UTC) = deadline for submitting predictions for that round
+  function getRaceDeadline(round) {
+    var race = getRaceByRound(round);
+    return race ? new Date(race.deadline).getTime() : 0;
+  }
+
+  function isRoundDeadlinePassed(round) {
+    return Date.now() >= getRaceDeadline(round);
+  }
+
+  // First race whose deadline hasn't passed; if all passed, the last race.
+  function getNextUpcomingRound() {
+    var races = getSeasonRaces();
+    var now = Date.now();
+    for (var i = 0; i < races.length; i++) {
+      if (new Date(races[i].deadline).getTime() > now) return String(races[i].round);
+    }
+    return races.length ? String(races[races.length - 1].round) : null;
+  }
+
+  function getSelectedRound() {
+    if (selectedRound == null) selectedRound = getNextUpcomingRound();
+    return selectedRound;
+  }
+
+  function formatRoundCountdown(round) {
+    var diff = getRaceDeadline(round) - Date.now();
     if (diff <= 0) return 'Gesloten';
     var d = Math.floor(diff / 86400000);
     var h = Math.floor((diff % 86400000) / 3600000);
@@ -1313,6 +1320,13 @@
     if (d > 0) return d + 'd ' + h + 'u';
     if (h > 0) return h + 'u ' + m + 'm';
     return m + 'm';
+  }
+
+  function raceFlag(country) {
+    if (window.F1Results && typeof window.F1Results.getFlag === 'function') {
+      return window.F1Results.getFlag(country);
+    }
+    return '🏁';
   }
 
   /* Device owner — who is using this device?
@@ -1349,11 +1363,6 @@
   function renderPredictionContent() {
     var html = '';
     var drivers = window.TripData.F1_DRIVERS;
-    var predictions = appData.predictions || {};
-    var raceResult = appData.raceResult;
-    var hasRaceResult = !!(raceResult && raceResult.p1 && raceResult.p2 && raceResult.p3);
-    // If we have a race result, the deadline has definitely passed, regardless of clock
-    var deadlinePassed = hasRaceResult || isPredictionDeadlinePassed();
 
     if (appData.group.length === 0) {
       html += '<div class="text-muted" style="font-size:13px;padding:12px 0">Voeg eerst personen toe bij <strong>Groep</strong></div>';
@@ -1368,19 +1377,42 @@
       return html;
     }
 
-    // Header with deadline countdown / status banner
+    var round = getSelectedRound();
+    var race = getRaceByRound(round);
+    var predictions = (appData.predictionsByRace && appData.predictionsByRace[round]) || {};
+    var raceResult = (appData.raceResultsByRace && appData.raceResultsByRace[round]) || null;
+    var hasRaceResult = !!(raceResult && raceResult.p1 && raceResult.p2 && raceResult.p3);
+    var deadlinePassed = hasRaceResult || isRoundDeadlinePassed(round);
+
+    html += '<div class="prediction-owner-badge">\uD83D\uDC64 Ingelogd als <strong>' + escapeHTML(owner) + '</strong> <button class="prediction-owner-change" onclick="window.App.changeDeviceOwner()">wijzig</button></div>';
+
+    // Race selector
+    html += '<div class="prediction-race-select">';
+    html += '<label class="prediction-race-label">Race</label>';
+    html += '<select class="prediction-race-dropdown" onchange="window.App.selectRound(this.value)">';
+    getSeasonRaces().forEach(function (r) {
+      var rKey = String(r.round);
+      var done = !!((appData.raceResultsByRace || {})[rKey]);
+      var passed = isRoundDeadlinePassed(rKey);
+      var tag = done ? ' \u2705' : (passed ? ' \uD83D\uDD12' : '');
+      html += '<option value="' + rKey + '"' + (rKey === String(round) ? ' selected' : '') + '>';
+      html += raceFlag(r.country) + ' R' + r.round + ' \u2014 ' + escapeHTML(r.name) + tag;
+      html += '</option>';
+    });
+    html += '</select>';
+    html += '</div>';
+
+    // Phase banner for the selected round
     if (hasRaceResult) {
-      html += '<div class="prediction-phase prediction-phase--result">\uD83C\uDFC1 Race afgelopen \u2014 scorebord hieronder</div>';
+      html += '<div class="prediction-phase prediction-phase--result">\uD83C\uDFC1 ' + escapeHTML(race ? race.name : '') + ' afgelopen \u2014 scorebord hieronder</div>';
     } else if (deadlinePassed) {
       html += '<div class="prediction-phase prediction-phase--closed">\uD83D\uDD12 Voorspellingen gesloten \u2014 wachten op uitslag</div>';
     } else {
       html += '<div class="prediction-phase prediction-phase--open">';
-      html += '<span>\u23F3 Sluit in <strong>' + formatDeadlineCountdown() + '</strong></span>';
+      html += '<span>\u23F3 Sluit in <strong>' + formatRoundCountdown(round) + '</strong></span>';
       html += '<span class="prediction-phase-hint">Je kan je picks niet meer wijzigen na inleveren</span>';
       html += '</div>';
     }
-
-    html += '<div class="prediction-owner-badge">\uD83D\uDC64 Ingelogd als <strong>' + escapeHTML(owner) + '</strong> <button class="prediction-owner-change" onclick="window.App.changeDeviceOwner()">wijzig</button></div>';
 
     // Scoring help
     html += '<p style="font-size:11px;color:var(--text-muted);margin:8px 0 12px">Punten: P1 = 10 pt, P2 = 8 pt, P3 = 6 pt, juiste coureur verkeerde plek = 3 pt</p>';
@@ -1416,7 +1448,7 @@
         ['p1', 'p2', 'p3'].forEach(function (pos, j) {
           html += '<div class="prediction-pick">';
           html += '<div class="prediction-pick-label">P' + (j + 1) + '</div>';
-          html += '<select class="prediction-select" data-person="' + escapeAttr(personName) + '" data-position="' + pos + '" onchange="window.App.savePrediction(this)">';
+          html += '<select class="prediction-select" data-person="' + escapeAttr(personName) + '" data-round="' + escapeAttr(String(round)) + '" data-position="' + pos + '" onchange="window.App.savePrediction(this)">';
           html += '<option value="">Kies...</option>';
           drivers.forEach(function (driver) {
             html += '<option value="' + driver + '"' + (pred[pos] === driver ? ' selected' : '') + '>' + driver + '</option>';
@@ -1463,11 +1495,61 @@
       html += '</div>'; // prediction-card
     });
 
-    // Scoreboard after the race
+    // This-race scoreboard
     if (hasRaceResult) {
       html += renderScoreboardBlock(predictions, raceResult);
     }
 
+    // Season standings (cumulative across all rounds with results)
+    html += renderSeasonStandings();
+
+    return html;
+  }
+
+  /* Cumulative season leaderboard: sum each person's score across every round
+     that has a result, counting only locked predictions. */
+  function renderSeasonStandings() {
+    var resultsByRace = appData.raceResultsByRace || {};
+    var predsByRace = appData.predictionsByRace || {};
+    var scoredRounds = Object.keys(resultsByRace).filter(function (rk) {
+      var r = resultsByRace[rk];
+      return r && r.p1 && r.p2 && r.p3;
+    });
+    if (scoredRounds.length === 0) return '';
+
+    var totals = {};
+    appData.group.forEach(function (p) {
+      if (p.name) totals[p.name] = { name: p.name, emoji: p.emoji || '👤', score: 0, races: 0 };
+    });
+    scoredRounds.forEach(function (rk) {
+      var result = resultsByRace[rk];
+      var preds = predsByRace[rk] || {};
+      Object.keys(totals).forEach(function (name) {
+        var pred = preds[name];
+        if (pred && pred.locked && pred.p1 && pred.p2 && pred.p3) {
+          totals[name].score += calculateScore(pred, result);
+          totals[name].races += 1;
+        }
+      });
+    });
+
+    var rows = Object.keys(totals).map(function (n) { return totals[n]; });
+    rows.sort(function (a, b) { return b.score - a.score; });
+
+    var html = '<div class="leaderboard season-standings">';
+    html += '<div style="font-size:14px;font-weight:700;margin-bottom:var(--space-sm)">🏆 Seizoenstand <span style="font-size:11px;color:var(--text-muted);font-weight:600">(' + scoredRounds.length + ' race' + (scoredRounds.length === 1 ? '' : 's') + ' gereden)</span></div>';
+    var medals = ['🥇', '🥈', '🥉'];
+    rows.forEach(function (s, i) {
+      html += '<div class="leaderboard-row">';
+      html += '<span class="leaderboard-pos">' + (medals[i] || (i + 1) + '.') + '</span>';
+      html += '<span style="font-size:16px">' + s.emoji + '</span>';
+      html += '<span class="leaderboard-name">' + escapeHTML(s.name);
+      html += ' <span style="font-size:10px;color:var(--text-muted)">' + s.races + ' race' + (s.races === 1 ? '' : 's') + '</span>';
+      html += '</span>';
+      html += '<span class="leaderboard-score">' + s.score + ' pt</span>';
+      html += '</div>';
+    });
+    html += '</div>';
     return html;
   }
 
@@ -1708,6 +1790,7 @@
     savePrediction: function (selectEl) {
       var personName = selectEl.dataset.person;
       var position = selectEl.dataset.position;
+      var round = selectEl.dataset.round;
       var driver = selectEl.value;
 
       // Only device owner can edit their own card
@@ -1719,8 +1802,9 @@
       }
 
       appData = window.TripStorage.loadData();
-      if (!appData.predictions) appData.predictions = {};
-      var existing = appData.predictions[personName] || {};
+      if (!appData.predictionsByRace) appData.predictionsByRace = {};
+      if (!appData.predictionsByRace[round]) appData.predictionsByRace[round] = {};
+      var existing = appData.predictionsByRace[round][personName] || {};
 
       // Block edits if already locked or deadline passed
       if (existing.locked) {
@@ -1728,15 +1812,15 @@
         renderActiveTab();
         return;
       }
-      if (isPredictionDeadlinePassed()) {
-        alert('De voorspellingsperiode is gesloten.');
+      if (isRoundDeadlinePassed(round)) {
+        alert('De voorspellingsperiode voor deze race is gesloten.');
         renderActiveTab();
         return;
       }
 
       existing[position] = driver;
       existing._updated = Date.now();
-      appData.predictions[personName] = existing;
+      appData.predictionsByRace[round][personName] = existing;
       window.TripStorage.saveData(appData);
       // Re-render to update the submit button (enabled when all 3 filled)
       // Preserve the prediction accordion open state after re-render
@@ -1757,8 +1841,10 @@
       var owner = getDeviceOwner();
       if (personName !== owner) return;
 
+      var round = getSelectedRound();
       appData = window.TripStorage.loadData();
-      var pred = (appData.predictions || {})[personName] || {};
+      var roundPreds = (appData.predictionsByRace || {})[round] || {};
+      var pred = roundPreds[personName] || {};
 
       if (!pred.p1 || !pred.p2 || !pred.p3) {
         alert('Vul eerst alle 3 de posities in.');
@@ -1768,8 +1854,8 @@
         alert('Al ingeleverd \u2014 kan niet meer wijzigen.');
         return;
       }
-      if (isPredictionDeadlinePassed()) {
-        alert('De voorspellingsperiode is gesloten.');
+      if (isRoundDeadlinePassed(round)) {
+        alert('De voorspellingsperiode voor deze race is gesloten.');
         return;
       }
 
@@ -1783,7 +1869,9 @@
       pred.locked = true;
       pred.lockedAt = Date.now();
       pred._updated = Date.now();
-      appData.predictions[personName] = pred;
+      if (!appData.predictionsByRace) appData.predictionsByRace = {};
+      if (!appData.predictionsByRace[round]) appData.predictionsByRace[round] = {};
+      appData.predictionsByRace[round][personName] = pred;
       window.TripStorage.saveData(appData);
       var predAccWasOpen = !!(document.getElementById('accordion-predictions') && document.getElementById('accordion-predictions').classList.contains('open'));
       renderActiveTab();
@@ -1794,6 +1882,16 @@
 
       if (window.TripSync && typeof window.TripSync.pushLocal === 'function') {
         window.TripSync.pushLocal();
+      }
+    },
+
+    selectRound: function (round) {
+      selectedRound = String(round);
+      var predAccWasOpen = !!(document.getElementById('accordion-predictions') && document.getElementById('accordion-predictions').classList.contains('open'));
+      renderActiveTab();
+      if (predAccWasOpen) {
+        var acc = document.getElementById('accordion-predictions');
+        if (acc) acc.classList.add('open');
       }
     },
 

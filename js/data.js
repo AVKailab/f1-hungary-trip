@@ -396,9 +396,32 @@
     ]
   };
 
+  /* ---------- Seizoen-voorspelspel: resterende races 2026 ----------
+     Ronde 8 (Oostenrijk) t/m 22 (Abu Dhabi). Elke deadline = de officiële
+     racestart (UTC). Bron: Jolpica F1 API kalender. Vlag wordt op render
+     afgeleid via window.F1Results.getFlag(country). */
+  var SEASON_RACES = [
+    { round: 8,  name: 'Oostenrijk',   gp: 'Austrian Grand Prix',       country: 'Austria',      deadline: '2026-06-28T13:00:00Z' },
+    { round: 9,  name: 'Groot-Brittannië', gp: 'British Grand Prix',    country: 'UK',           deadline: '2026-07-05T14:00:00Z' },
+    { round: 10, name: 'België',       gp: 'Belgian Grand Prix',        country: 'Belgium',      deadline: '2026-07-19T13:00:00Z' },
+    { round: 11, name: 'Hongarije',    gp: 'Hungarian Grand Prix',      country: 'Hungary',      deadline: '2026-07-26T13:00:00Z' },
+    { round: 12, name: 'Nederland',    gp: 'Dutch Grand Prix',          country: 'Netherlands',  deadline: '2026-08-23T13:00:00Z' },
+    { round: 13, name: 'Italië',       gp: 'Italian Grand Prix',        country: 'Italy',        deadline: '2026-09-06T13:00:00Z' },
+    { round: 14, name: 'Spanje',       gp: 'Spanish Grand Prix',        country: 'Spain',        deadline: '2026-09-13T13:00:00Z' },
+    { round: 15, name: 'Azerbeidzjan', gp: 'Azerbaijan Grand Prix',     country: 'Azerbaijan',   deadline: '2026-09-26T11:00:00Z' },
+    { round: 16, name: 'Singapore',    gp: 'Singapore Grand Prix',      country: 'Singapore',    deadline: '2026-10-11T12:00:00Z' },
+    { round: 17, name: 'Verenigde Staten', gp: 'United States Grand Prix', country: 'USA',       deadline: '2026-10-25T20:00:00Z' },
+    { round: 18, name: 'Mexico',       gp: 'Mexico City Grand Prix',    country: 'Mexico',       deadline: '2026-11-01T20:00:00Z' },
+    { round: 19, name: 'Brazilië',     gp: 'Brazilian Grand Prix',      country: 'Brazil',       deadline: '2026-11-08T17:00:00Z' },
+    { round: 20, name: 'Las Vegas',    gp: 'Las Vegas Grand Prix',      country: 'USA',          deadline: '2026-11-22T04:00:00Z' },
+    { round: 21, name: 'Qatar',        gp: 'Qatar Grand Prix',          country: 'Qatar',        deadline: '2026-11-29T16:00:00Z' },
+    { round: 22, name: 'Abu Dhabi',    gp: 'Abu Dhabi Grand Prix',      country: 'UAE',          deadline: '2026-12-06T13:00:00Z' }
+  ];
+
   // Expose to global scope
   window.TripData = {
     RACE_SESSIONS: RACE_SESSIONS,
+    SEASON_RACES: SEASON_RACES,
     HUNGARORING: HUNGARORING,
     BUDAPEST_CENTER: BUDAPEST_CENTER,
     TRIP_DATES: TRIP_DATES,

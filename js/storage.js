@@ -27,13 +27,19 @@
     },
     transportNotes: '',
     tickets: [],  // { name: '', dataUrl: '', type: '' }
-    predictions: {},
-    raceResult: null,
+    // Season prediction game: predictions + results keyed by race round.
+    //   predictionsByRace = { "11": { "Andres": {p1,p2,p3,locked,...} }, ... }
+    //   raceResultsByRace = { "11": {p1,p2,p3,source,_updated}, ... }
+    predictionsByRace: {},
+    raceResultsByRace: {},
     finances: {
       costs: [],
       paidItems: {}
     }
   };
+
+  // The Hungarian GP round — old single-race data migrates here.
+  var HUNGARY_ROUND = '11';
 
   function deepClone(obj) {
     return JSON.parse(JSON.stringify(obj));
@@ -59,8 +65,22 @@
         }
         if (parsed.transportNotes !== undefined) merged.transportNotes = parsed.transportNotes;
         if (parsed.tickets) merged.tickets = parsed.tickets;
-        if (parsed.predictions) merged.predictions = parsed.predictions;
-        if (parsed.raceResult !== undefined) merged.raceResult = parsed.raceResult;
+
+        // Season prediction model
+        if (parsed.predictionsByRace) merged.predictionsByRace = parsed.predictionsByRace;
+        if (parsed.raceResultsByRace) merged.raceResultsByRace = parsed.raceResultsByRace;
+
+        // Migrate legacy single-race data (flat predictions + raceResult were
+        // the Hungarian GP) into the per-round model, once.
+        if (parsed.predictions && Object.keys(parsed.predictions).length > 0 &&
+            !merged.predictionsByRace[HUNGARY_ROUND]) {
+          merged.predictionsByRace[HUNGARY_ROUND] = parsed.predictions;
+        }
+        if (parsed.raceResult && parsed.raceResult.p1 &&
+            !merged.raceResultsByRace[HUNGARY_ROUND]) {
+          merged.raceResultsByRace[HUNGARY_ROUND] = parsed.raceResult;
+        }
+
         if (parsed.finances) {
           if (parsed.finances.costs) merged.finances.costs = parsed.finances.costs;
           if (parsed.finances.paidItems) merged.finances.paidItems = parsed.finances.paidItems;
