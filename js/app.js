@@ -150,9 +150,20 @@
   function updateDashboardCountdowns() {
     if (getActiveTab() !== 'tab-dashboard') return;
 
-    // Main countdown
-    var raceSession = window.TripData.RACE_SESSIONS[4]; // Race
     var mainEl = document.getElementById('main-countdown');
+
+    if (isSeasonMode()) {
+      // Season mode: main countdown ticks towards the next race start
+      var nextRound = getNextUpcomingRound();
+      var nextRace = nextRound ? getRaceByRound(nextRound) : null;
+      if (mainEl && nextRace && !isRoundDeadlinePassed(nextRound)) {
+        mainEl.innerHTML = window.TripCountdown.renderCountdownHTML(nextRace.deadline, 'large');
+      }
+      return;
+    }
+
+    // Trip mode: countdown to the Hungarian GP race
+    var raceSession = window.TripData.RACE_SESSIONS[4]; // Race
     if (mainEl) {
       mainEl.innerHTML = window.TripCountdown.renderCountdownHTML(raceSession.date, 'large');
     }
@@ -190,8 +201,26 @@
     });
   }
 
+  /* ---------- Season mode ----------
+     After the trip (28 juli 2026) the app's job changes: the prediction game
+     and WK standings become the main event, trip content moves out of the way.
+     The switch is date-driven so nobody has to update anything by hand.
+     Test override: localStorage.setItem('f1Trip_forceSeasonMode', '1') */
+  var TRIP_END = new Date('2026-07-28T00:00:00+02:00').getTime();
+
+  function isSeasonMode() {
+    try {
+      if (localStorage.getItem('f1Trip_forceSeasonMode') === '1') return true;
+    } catch (e) {}
+    return Date.now() >= TRIP_END;
+  }
+
   /* ---------- Dashboard ---------- */
   function renderDashboard() {
+    if (isSeasonMode()) {
+      renderSeasonDashboard();
+      return;
+    }
     var container = document.getElementById('dashboard-content');
     var raceSession = window.TripData.RACE_SESSIONS[4];
     var next = window.TripCountdown.getNextSession();
@@ -308,6 +337,77 @@
 
     container.innerHTML = html;
     loadWeatherCard();
+  }
+
+  /* Season dashboard: prediction game first, countdown to the next race,
+     compact WK standings. Trip cards are gone — that chapter is closed. */
+  function renderSeasonDashboard() {
+    var container = document.getElementById('dashboard-content');
+    var html = '';
+
+    var nextRound = getNextUpcomingRound();
+    var nextRace = nextRound ? getRaceByRound(nextRound) : null;
+    var seasonOver = !nextRace || isRoundDeadlinePassed(nextRound);
+
+    // Countdown to the next race (deadline = race start)
+    if (!seasonOver) {
+      html += '<div class="text-center">';
+      html += '<div class="countdown-label">' + raceFlag(nextRace.country) + ' Volgende race: ' + escapeHTML(nextRace.name) + '</div>';
+      html += '<div id="main-countdown">';
+      html += window.TripCountdown.renderCountdownHTML(nextRace.deadline, 'large');
+      html += '</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Voorspellen kan tot de start van de race</div>';
+      html += '</div>';
+    } else {
+      html += '<div class="race-done-message">🏆 Seizoen 2026 zit erop — eindstand hieronder!</div>';
+    }
+
+    // Prediction game — the main event now
+    var nextPreds = (appData.predictionsByRace && appData.predictionsByRace[nextRound]) || {};
+    var lockedCount = 0;
+    appData.group.forEach(function (p) {
+      var pred = nextPreds[p.name];
+      if (pred && pred.locked) lockedCount++;
+    });
+    var nextLabel = nextRace ? (raceFlag(nextRace.country) + ' ' + escapeHTML(nextRace.name)) : 'Seizoen';
+    var statusLabel = '🏆 Voorspelling — ' + nextLabel + ' &nbsp;<span style="font-size:11px;color:var(--text-muted);font-weight:600">' + lockedCount + '/' + appData.group.length + ' ingeleverd</span>';
+    html += renderAccordion('predictions', statusLabel, renderPredictionContent(), true);
+
+    // Compact WK standings (top 5), loaded async from the F1 API
+    html += '<div class="card mt-md">';
+    html += '<div class="card-header"><span class="card-title">🏆 WK Stand</span>';
+    html += '<span style="font-size:11px;color:var(--text-muted)">volledige stand bij Uitslagen</span></div>';
+    html += '<div id="season-wk-standings">';
+    html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">Stand laden...</div>';
+    html += '</div>';
+    html += '</div>';
+
+    container.innerHTML = html;
+    loadSeasonStandingsCard();
+  }
+
+  function loadSeasonStandingsCard() {
+    if (!window.F1Results || typeof window.F1Results.getStandings !== 'function') return;
+    window.F1Results.getStandings(function (err, standings) {
+      var el = document.getElementById('season-wk-standings');
+      if (!el) return;
+      if (err || !standings || standings.length === 0) {
+        el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">Kon WK-stand niet laden</div>';
+        return;
+      }
+      var html = '';
+      standings.slice(0, 5).forEach(function (s, i) {
+        var drv = s.Driver || {};
+        var cons = (s.Constructors && s.Constructors[0]) || {};
+        var color = window.F1Results.getTeamColor(cons.constructorId);
+        html += '<div class="leaderboard-row" style="border-left:3px solid ' + color + '">';
+        html += '<span class="leaderboard-pos">' + (i + 1) + '.</span>';
+        html += '<span class="leaderboard-name">' + escapeHTML((drv.givenName ? drv.givenName.charAt(0) + '. ' : '') + (drv.familyName || '')) + ' <span style="font-size:10px;color:var(--text-muted)">' + escapeHTML(cons.name || '') + '</span></span>';
+        html += '<span class="leaderboard-score">' + (s.points || 0) + ' pt</span>';
+        html += '</div>';
+      });
+      el.innerHTML = html;
+    });
   }
 
   /* ---------- Weather ---------- */
