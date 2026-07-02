@@ -941,6 +941,25 @@ body {
   text-align: center;
 }
 
+/* Quick cards are tappable shortcuts (button reset + affordance) */
+.quick-card--link {
+  font-family: var(--font-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  width: 100%;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.quick-card--link:hover,
+.quick-card--link:active {
+  border-color: var(--f1-red);
+}
+
+.quick-card--link .quick-card-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 .quick-card-icon {
   font-size: 24px;
   margin-bottom: var(--space-xs);

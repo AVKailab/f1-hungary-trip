@@ -281,24 +281,24 @@
       html += '<div class="race-done-message">\uD83C\uDFC6 Race weekend afgelopen!</div>';
     }
 
-    // Quick cards
+    // Quick cards \u2014 shortcuts to the tab with the details
     var car = window.TripData.CAR_INFO;
     html += '<div class="quick-cards">';
-    html += '<div class="quick-card">';
+    html += '<button class="quick-card quick-card--link" onclick="window.App.goTo(\'tab-circuit\', \'hotel\')">';
     html += '<div class="quick-card-icon">\uD83C\uDFE8</div>';
     html += '<div class="quick-card-value">' + (appData.hotel.name || 'Niet ingesteld') + '</div>';
-    html += '<div class="quick-card-label">Hotel</div>';
-    html += '</div>';
-    html += '<div class="quick-card">';
+    html += '<div class="quick-card-label">Hotel \u00B7 info \u203A</div>';
+    html += '</button>';
+    html += '<button class="quick-card quick-card--link" onclick="window.App.goTo(\'tab-roadtrip\')">';
     html += '<div class="quick-card-icon">\uD83D\uDE97</div>';
     html += '<div class="quick-card-value">' + car.model + '</div>';
-    html += '<div class="quick-card-label">' + car.range + ' km range</div>';
-    html += '</div>';
-    html += '<div class="quick-card">';
+    html += '<div class="quick-card-label">Roadtrip \u00B7 route \u203A</div>';
+    html += '</button>';
+    html += '<button class="quick-card quick-card--link" onclick="window.App.goTo(\'tab-group\')">';
     html += '<div class="quick-card-icon">\uD83D\uDC65</div>';
     html += '<div class="quick-card-value">' + (appData.group.length || 0) + ' personen</div>';
-    html += '<div class="quick-card-label">Groep</div>';
-    html += '</div>';
+    html += '<div class="quick-card-label">Groep \u00B7 kosten \u203A</div>';
+    html += '</button>';
     html += '</div>';
 
     // Navigation card — deep-link to Google Maps
@@ -1994,6 +1994,21 @@
         window.TripStorage.saveData(appData);
         renderGroup();
       }
+    },
+
+    /* Jump to a tab, optionally opening + scrolling to an accordion there */
+    goTo: function (tabId, accordionId) {
+      var navBtn = document.querySelector('[data-tab="' + tabId + '"]');
+      if (!navBtn) return;
+      navBtn.click();
+      if (!accordionId) return;
+      setTimeout(function () {
+        var acc = document.getElementById('accordion-' + accordionId);
+        if (acc) {
+          acc.classList.add('open');
+          acc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 120);
     },
 
     showHotelOnMap: function () {
