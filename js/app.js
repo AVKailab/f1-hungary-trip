@@ -22,6 +22,9 @@
       });
     }
 
+    // Keep the sync status line live (sync.js dispatches after every pull/push)
+    window.addEventListener('f1syncstatus', updateSyncStatusEl);
+
     // Auto-populate race result from F1 API when Hungarian GP has finished
     checkAndAutoFillRaceResult();
     // Re-check every 5 minutes (15 min cache in results.js handles the actual rate)
@@ -337,6 +340,8 @@
 
     container.innerHTML = html;
     loadWeatherCard();
+    refreshReminderRow();
+    updateSyncStatusEl();
   }
 
   /* Season dashboard: prediction game first, countdown to the next race,
@@ -384,6 +389,8 @@
 
     container.innerHTML = html;
     loadSeasonStandingsCard();
+    refreshReminderRow();
+    updateSyncStatusEl();
   }
 
   function loadSeasonStandingsCard() {
@@ -1486,6 +1493,9 @@
 
     html += '<div class="prediction-owner-badge">\uD83D\uDC64 Ingelogd als <strong>' + escapeHTML(owner) + '</strong> <button class="prediction-owner-change" onclick="window.App.changeDeviceOwner()">wijzig</button></div>';
 
+    // Deadline reminders (async filled by refreshReminderRow)
+    html += '<div id="reminder-row" class="reminder-row hidden"></div>';
+
     // Race selector
     html += '<div class="prediction-race-select">';
     html += '<label class="prediction-race-label">Race</label>';
@@ -1603,7 +1613,60 @@
     // Season standings (cumulative across all rounds with results)
     html += renderSeasonStandings();
 
+    // Sync status (async filled by updateSyncStatusEl)
+    html += '<div id="sync-status" class="sync-status"></div>';
+
     return html;
+  }
+
+  /* ---------- Reminder row (web push opt-in) ---------- */
+  function refreshReminderRow() {
+    var el = document.getElementById('reminder-row');
+    if (!el || !window.TripPush) return;
+    var owner = getDeviceOwner();
+    if (!owner) { el.classList.add('hidden'); return; }
+
+    window.TripPush.getState(function (state) {
+      // Re-query: a re-render may have replaced the element meanwhile
+      el = document.getElementById('reminder-row');
+      if (!el) return;
+      var html = '';
+      if (state === 'unsupported') {
+        el.classList.add('hidden');
+        return;
+      }
+      if (state === 'ios-install') {
+        html = '<span class="reminder-hint">📲 Wil je een seintje vóór elke deadline? Zet de app op je beginscherm (Deel → Zet op beginscherm) en zet daarna herinneringen aan.</span>';
+      } else if (state === 'denied') {
+        html = '<span class="reminder-hint">🔕 Meldingen zijn geblokkeerd — zet ze aan in je browserinstellingen voor deadline-herinneringen.</span>';
+      } else if (state === 'on') {
+        html = '<span class="reminder-on">🔔 Herinneringen aan</span>' +
+          '<button class="reminder-toggle-btn" onclick="window.App.disableReminders()">uitzetten</button>';
+      } else { // 'off'
+        html = '<button class="reminder-enable-btn" onclick="window.App.enableReminders()">🔔 Herinner mij vóór elke deadline</button>';
+      }
+      el.innerHTML = html;
+      el.classList.remove('hidden');
+    });
+  }
+
+  /* ---------- Sync status line ---------- */
+  function updateSyncStatusEl() {
+    var el = document.getElementById('sync-status');
+    if (!el || !window.TripSync || typeof window.TripSync.getStatus !== 'function') return;
+    var s = window.TripSync.getStatus();
+    if (!s.enabled) { el.innerHTML = ''; return; }
+
+    if (s.pendingPush || s.lastError) {
+      el.innerHTML = '<span class="sync-status-bad">⚠️ Nog niet gesynct — probeert opnieuw zodra er verbinding is</span>';
+    } else if (s.lastOkAt) {
+      var d = new Date(s.lastOkAt);
+      var hh = (d.getHours() < 10 ? '0' : '') + d.getHours();
+      var mm = (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+      el.innerHTML = '<span class="sync-status-ok">✓ Gesynct ' + hh + ':' + mm + '</span>';
+    } else {
+      el.innerHTML = '<span class="sync-status-muted">Synchroniseren…</span>';
+    }
   }
 
   /* Cumulative season leaderboard: sum each person's score across every round
@@ -1993,6 +2056,24 @@
         var acc = document.getElementById('accordion-predictions');
         if (acc) acc.classList.add('open');
       }
+    },
+
+    enableReminders: function () {
+      var owner = getDeviceOwner();
+      if (!owner || !window.TripPush) return;
+      var el = document.getElementById('reminder-row');
+      if (el) el.innerHTML = '<span class="reminder-hint">Even geduld…</span>';
+      window.TripPush.enable(owner, function (err) {
+        if (err) alert('Herinneringen aanzetten mislukt: ' + err);
+        refreshReminderRow();
+      });
+    },
+
+    disableReminders: function () {
+      if (!window.TripPush) return;
+      window.TripPush.disable(function () {
+        refreshReminderRow();
+      });
     },
 
     pickDeviceOwner: function (name) {

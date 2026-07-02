@@ -190,6 +190,139 @@ async function writeState(env, state) {
   await env.SYNC.put(SYNC_KEY, JSON.stringify(state));
 }
 
+/* ---------- Push reminders ----------
+   Hourly cron: for every race whose start is <= 24h away, remind each
+   subscribed person who hasn't locked a prediction yet. Pushes are sent
+   WITHOUT payload (avoids RFC 8291 message encryption); the service worker
+   fetches its personalized message from /push/message on arrival. */
+
+const SUBS_KEY = 'push-subscriptions';   // { [endpoint]: {endpoint, keys, owner, created} }
+const PENDING_KEY = 'push-pending';      // { [endpoint]: {title, body, ts} }
+const SENT_KEY = 'reminders-sent';       // { [round]: timestamp }
+const MAX_SUBSCRIPTIONS = 25;
+
+// Same calendar as js/data.js SEASON_RACES (deadline = race start, UTC)
+const SEASON_DEADLINES = [
+  { round: '8',  name: 'Oostenrijk',        deadline: '2026-06-28T13:00:00Z' },
+  { round: '9',  name: 'Groot-Brittannië',  deadline: '2026-07-05T14:00:00Z' },
+  { round: '10', name: 'België',            deadline: '2026-07-19T13:00:00Z' },
+  { round: '11', name: 'Hongarije',         deadline: '2026-07-26T13:00:00Z' },
+  { round: '12', name: 'Nederland',         deadline: '2026-08-23T13:00:00Z' },
+  { round: '13', name: 'Italië',            deadline: '2026-09-06T13:00:00Z' },
+  { round: '14', name: 'Spanje',            deadline: '2026-09-13T13:00:00Z' },
+  { round: '15', name: 'Azerbeidzjan',      deadline: '2026-09-26T11:00:00Z' },
+  { round: '16', name: 'Singapore',         deadline: '2026-10-11T12:00:00Z' },
+  { round: '17', name: 'Verenigde Staten',  deadline: '2026-10-25T20:00:00Z' },
+  { round: '18', name: 'Mexico',            deadline: '2026-11-01T20:00:00Z' },
+  { round: '19', name: 'Brazilië',          deadline: '2026-11-08T17:00:00Z' },
+  { round: '20', name: 'Las Vegas',         deadline: '2026-11-22T04:00:00Z' },
+  { round: '21', name: 'Qatar',             deadline: '2026-11-29T16:00:00Z' },
+  { round: '22', name: 'Abu Dhabi',         deadline: '2026-12-06T13:00:00Z' }
+];
+
+async function kvGetJson(env, key, fallback) {
+  const raw = await env.SYNC.get(key);
+  if (!raw) return fallback;
+  try { return JSON.parse(raw); } catch (e) { return fallback; }
+}
+
+function b64url(buf) {
+  let s = '';
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/* VAPID (RFC 8292): ES256-signed JWT proving we own the application server key */
+async function vapidAuthHeader(endpoint, env) {
+  const aud = new URL(endpoint).origin;
+  const claims = {
+    aud: aud,
+    exp: Math.floor(Date.now() / 1000) + 12 * 3600,
+    sub: 'mailto:amoprive@gmail.com'
+  };
+  const enc = new TextEncoder();
+  const unsigned =
+    b64url(enc.encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' }))) + '.' +
+    b64url(enc.encode(JSON.stringify(claims)));
+  const key = await crypto.subtle.importKey(
+    'jwk', JSON.parse(env.VAPID_PRIVATE_JWK),
+    { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']
+  );
+  // WebCrypto ECDSA yields raw r||s — exactly the JWS ES256 signature format
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, enc.encode(unsigned));
+  return 'vapid t=' + unsigned + '.' + b64url(sig) + ', k=' + env.VAPID_PUBLIC_KEY;
+}
+
+/* Send a payload-less push. Returns the push service's HTTP status. */
+async function sendPush(endpoint, env) {
+  const auth = await vapidAuthHeader(endpoint, env);
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Authorization': auth, 'TTL': '86400' }
+  });
+  return res.status;
+}
+
+/* Core reminder pass. Returns a report (also used by /push/preview). */
+async function runReminderCheck(env, opts) {
+  opts = opts || {};
+  const now = Date.now();
+  const state = await readState(env);
+  const subs = await kvGetJson(env, SUBS_KEY, {});
+  const sent = await kvGetJson(env, SENT_KEY, {});
+  const pending = await kvGetJson(env, PENDING_KEY, {});
+  const report = { checked: [], sent: [], cleaned: [] };
+  let subsChanged = false;
+
+  for (const race of SEASON_DEADLINES) {
+    const msLeft = new Date(race.deadline).getTime() - now;
+    const inWindow = msLeft > 0 && msLeft <= 24 * 3600 * 1000;
+    const forced = opts.forceRound === race.round;
+    if (!inWindow && !forced) continue;
+
+    const preds = (state.predictionsByRace || {})[race.round] || {};
+    const missing = Object.keys(subs)
+      .filter(ep => !(preds[subs[ep].owner] && preds[subs[ep].owner].locked))
+      .map(ep => subs[ep].owner);
+    report.checked.push({ round: race.round, name: race.name, hoursLeft: Math.max(0, Math.round(msLeft / 3600000)), missing: missing });
+
+    if (opts.dryRun) continue;
+    if (sent[race.round] && !forced) continue;
+
+    const hours = Math.max(1, Math.round(msLeft / 3600000));
+    for (const ep of Object.keys(subs)) {
+      const sub = subs[ep];
+      if (preds[sub.owner] && preds[sub.owner].locked) continue;
+      pending[ep] = {
+        title: '🏁 ' + race.name + ' sluit over ' + hours + ' uur',
+        body: 'Hoi ' + sub.owner + '! Je hebt nog niet voorspeld voor ' + race.name + '. Lever je top 3 in vóór de start.',
+        ts: now
+      };
+      try {
+        const status = await sendPush(ep, env);
+        report.sent.push({ owner: sub.owner, status: status });
+        if (status === 404 || status === 410) {
+          delete subs[ep];
+          delete pending[ep];
+          report.cleaned.push(sub.owner);
+          subsChanged = true;
+        }
+      } catch (e) {
+        report.sent.push({ owner: sub.owner, status: 'error: ' + e.message });
+      }
+    }
+    sent[race.round] = now;
+  }
+
+  if (!opts.dryRun) {
+    await env.SYNC.put(SENT_KEY, JSON.stringify(sent));
+    await env.SYNC.put(PENDING_KEY, JSON.stringify(pending));
+    if (subsChanged) await env.SYNC.put(SUBS_KEY, JSON.stringify(subs));
+  }
+  return report;
+}
+
 /* ---------- Router ---------- */
 export default {
   async fetch(request, env) {
@@ -243,6 +376,85 @@ export default {
       }
     }
 
+    // Push: register a subscription (owner = group member name)
+    if (url.pathname === '/push/subscribe' && request.method === 'POST') {
+      let p;
+      try { p = await request.json(); } catch (e) {
+        return jsonResponse({ error: 'Invalid JSON body' }, 400, cors);
+      }
+      const sub = p && p.subscription;
+      const owner = ((p && p.owner) || '').toString().slice(0, 40);
+      if (!sub || typeof sub.endpoint !== 'string' || !sub.endpoint.startsWith('https://') || !owner) {
+        return jsonResponse({ error: 'subscription.endpoint (https) en owner zijn verplicht' }, 400, cors);
+      }
+      try {
+        const subs = await kvGetJson(env, SUBS_KEY, {});
+        if (!subs[sub.endpoint] && Object.keys(subs).length >= MAX_SUBSCRIPTIONS) {
+          return jsonResponse({ error: 'Te veel registraties' }, 429, cors);
+        }
+        subs[sub.endpoint] = { endpoint: sub.endpoint, keys: sub.keys || {}, owner: owner, created: Date.now() };
+        await env.SYNC.put(SUBS_KEY, JSON.stringify(subs));
+        return jsonResponse({ ok: true }, 200, cors);
+      } catch (e) {
+        return jsonResponse({ error: e.message || 'Subscribe failed' }, 502, cors);
+      }
+    }
+
+    // Push: remove a subscription
+    if (url.pathname === '/push/unsubscribe' && request.method === 'POST') {
+      let p;
+      try { p = await request.json(); } catch (e) {
+        return jsonResponse({ error: 'Invalid JSON body' }, 400, cors);
+      }
+      try {
+        const subs = await kvGetJson(env, SUBS_KEY, {});
+        if (p && p.endpoint && subs[p.endpoint]) {
+          delete subs[p.endpoint];
+          await env.SYNC.put(SUBS_KEY, JSON.stringify(subs));
+        }
+        return jsonResponse({ ok: true }, 200, cors);
+      } catch (e) {
+        return jsonResponse({ error: e.message || 'Unsubscribe failed' }, 502, cors);
+      }
+    }
+
+    // Push: the service worker fetches its personalized message on arrival
+    if (url.pathname === '/push/message' && request.method === 'POST') {
+      let p;
+      try { p = await request.json(); } catch (e) {
+        return jsonResponse({ error: 'Invalid JSON body' }, 400, cors);
+      }
+      try {
+        const pending = await kvGetJson(env, PENDING_KEY, {});
+        const msg = p && p.endpoint && pending[p.endpoint];
+        if (msg) {
+          delete pending[p.endpoint];
+          await env.SYNC.put(PENDING_KEY, JSON.stringify(pending));
+          return jsonResponse({ title: msg.title, body: msg.body }, 200, cors);
+        }
+        return jsonResponse({ title: null, body: null }, 200, cors);
+      } catch (e) {
+        return jsonResponse({ error: e.message || 'Message fetch failed' }, 502, cors);
+      }
+    }
+
+    // Push: dry-run report (who would be reminded). ?send=1&round=N&key=... forces a real send.
+    if (url.pathname === '/push/preview' && request.method === 'GET') {
+      try {
+        const wantSend = url.searchParams.get('send') === '1';
+        const keyOk = env.PUSH_TEST_KEY && url.searchParams.get('key') === env.PUSH_TEST_KEY;
+        const subs = await kvGetJson(env, SUBS_KEY, {});
+        const report = await runReminderCheck(env, {
+          dryRun: !(wantSend && keyOk),
+          forceRound: (wantSend && keyOk) ? (url.searchParams.get('round') || null) : null
+        });
+        report.subscriptions = Object.keys(subs).map(ep => ({ owner: subs[ep].owner, created: subs[ep].created }));
+        return jsonResponse(report, 200, cors);
+      } catch (e) {
+        return jsonResponse({ error: e.message || 'Preview failed' }, 502, cors);
+      }
+    }
+
     // Translation endpoint
     if (url.pathname === '/translate' && request.method === 'POST') {
       if (!env.ANTHROPIC_API_KEY) {
@@ -277,5 +489,10 @@ export default {
     }
 
     return jsonResponse({ error: 'Not found' }, 404, cors);
+  },
+
+  /* Hourly cron: send deadline reminders (see [triggers] in wrangler.toml) */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runReminderCheck(env, {}));
   }
 };

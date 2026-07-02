@@ -10,6 +10,14 @@ compatibility_date = "2025-01-01"
 # Comma-separated list of allowed origins (no trailing slash).
 # Use "*" during local dev; tighten to your GitHub Pages URL in production.
 ALLOWED_ORIGINS = "https://avkailab.github.io,http://localhost:3000,http://127.0.0.1:3000"
+# VAPID public key (uncompressed P-256 point, base64url). The private half
+# lives in a secret: wrangler secret put VAPID_PRIVATE_JWK
+VAPID_PUBLIC_KEY = "BJTuw03yW4Zl4WxRJnQg4ZMCrhz09CtWoMyMz-EoOA6AWEpLkqDyd0JAI9fd0BlHKCLm4s-1dGvWIrMTsnhe9sY"
+
+# Hourly reminder check: pushes a nudge to everyone who enabled reminders
+# and hasn't locked a prediction when a race starts within 24h.
+[triggers]
+crons = ["0 * * * *"]
 
 # KV namespace for shared prediction sync. Create it with:
 #   npx wrangler kv namespace create SYNC

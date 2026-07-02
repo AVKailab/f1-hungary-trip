@@ -5,7 +5,10 @@
    Map tiles (OpenStreetMap): cache-first so previously-viewed areas
    keep working without signal. */
 
-const CACHE_VERSION = 'f1-hungary-v5';
+// Config (Worker URL) is shared with the app via js/config.js
+importScripts('js/config.js');
+
+const CACHE_VERSION = 'f1-hungary-v6';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 
@@ -23,6 +26,7 @@ const STATIC_ASSETS = [
   './js/results.js',
   './js/sync.js',
   './js/translate.js',
+  './js/push.js',
   './js/app.js',
   './img/background.jpg',
   './img/icon.svg',
@@ -73,6 +77,53 @@ function isMapTile(url) {
     /\.tile\./.test(url.hostname)
   );
 }
+
+/* ---------- Push: deadline reminders ----------
+   Pushes arrive WITHOUT payload (no message encryption needed). We fetch
+   our personalized message from the Worker; if that fails we show a
+   generic reminder so the push is never silently dropped. */
+self.addEventListener('push', (event) => {
+  event.waitUntil((async () => {
+    let title = '🏁 F1 Voorspelling';
+    let body = 'De volgende race sluit binnenkort — vergeet je voorspelling niet!';
+    try {
+      const workerUrl = (self.F1_CONFIG && self.F1_CONFIG.workerUrl) || '';
+      const sub = await self.registration.pushManager.getSubscription();
+      if (workerUrl && sub) {
+        const res = await fetch(workerUrl + '/push/message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.body) {
+            body = data.body;
+            if (data.title) title = data.title;
+          }
+        }
+      }
+    } catch (e) { /* generic fallback text is fine */ }
+    await self.registration.showNotification(title, {
+      body: body,
+      icon: 'img/icon.svg',
+      badge: 'img/icon.svg',
+      tag: 'f1-deadline-reminder'
+    });
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if ('focus' in client) return client.focus();
+      }
+      return clients.openWindow('./');
+    })
+  );
+});
 
 // Fetch: smart routing based on request type
 self.addEventListener('fetch', (event) => {

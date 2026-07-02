@@ -27,6 +27,27 @@
   var pushCooldownUntil = 0;
   var lastRemoteHash = '';
 
+  /* Status for the UI indicator. pendingPush = a push failed (offline?) and
+     will be retried on the next poll tick or when the browser comes online. */
+  var syncStatus = { lastOkAt: 0, lastError: null, pendingPush: false };
+
+  function emitStatus() {
+    try {
+      window.dispatchEvent(new CustomEvent('f1syncstatus'));
+    } catch (e) {}
+  }
+
+  function markOk() {
+    syncStatus.lastOkAt = Date.now();
+    syncStatus.lastError = null;
+    emitStatus();
+  }
+
+  function markError(err) {
+    syncStatus.lastError = err || 'sync error';
+    emitStatus();
+  }
+
   /* ---------- Helpers ---------- */
 
   function hashOf(obj) {
@@ -154,6 +175,7 @@
     fetchRemote(function (err, remote) {
       isSyncing = false;
       if (err) {
+        markError(err);
         if (callback) callback(err);
         return;
       }
@@ -176,6 +198,7 @@
       }
 
       lastRemoteHash = hashOf({ p: remotePreds, r: remoteResults });
+      markOk();
 
       if (callback) callback(null, changed);
       if (changed && onUpdateCallback) onUpdateCallback();
@@ -195,6 +218,10 @@
       function (saveErr, merged) {
         if (saveErr) {
           pushCooldownUntil = 0;
+          // Remember that local changes still need to reach the cloud;
+          // retried on the next poll tick and on the 'online' event.
+          syncStatus.pendingPush = true;
+          markError(saveErr);
           if (callback) callback(saveErr);
           return;
         }
@@ -206,6 +233,8 @@
         fresh.raceResultsByRace = mergeResultsByRace(fresh.raceResultsByRace, (merged && merged.raceResultsByRace) || {});
         window.TripStorage.saveData(fresh);
         pushCooldownUntil = Date.now() + 2000;
+        syncStatus.pendingPush = false;
+        markOk();
         if (callback) callback(null);
         if (onUpdateCallback) onUpdateCallback();
       }
@@ -220,8 +249,20 @@
     if (!syncEnabled()) return; // local-only mode
     pullAndMerge();
     pollTimer = setInterval(function () {
-      pullAndMerge();
+      // A failed push (offline submit!) takes priority over pulling —
+      // otherwise a locked prediction made offline would never reach the cloud
+      if (syncStatus.pendingPush) {
+        pushLocal();
+      } else {
+        pullAndMerge();
+      }
     }, POLL_INTERVAL);
+
+    // Retry immediately when the connection returns
+    window.addEventListener('online', function () {
+      if (syncStatus.pendingPush) pushLocal();
+      else pullAndMerge();
+    });
   }
 
   function stopPolling() {
@@ -236,6 +277,14 @@
     startPolling: startPolling,
     stopPolling: stopPolling,
     pullAndMerge: pullAndMerge,
-    pushLocal: pushLocal
+    pushLocal: pushLocal,
+    getStatus: function () {
+      return {
+        enabled: syncEnabled(),
+        lastOkAt: syncStatus.lastOkAt,
+        lastError: syncStatus.lastError,
+        pendingPush: syncStatus.pendingPush
+      };
+    }
   };
 })();

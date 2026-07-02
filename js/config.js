@@ -1,9 +1,9 @@
 /* ===== config.js - App configuration =====
-   Eén plek om de Cloudflare Worker URL te zetten. Zowel de vertaler
-   (translate.js) als de prediction-sync (sync.js) lezen deze waarde.
-
-   Na het deployen van /worker:  npm run deploy  -> kopieer de
-   workers.dev URL en plak die hieronder (zonder trailing slash). */
-window.F1_CONFIG = {
-  workerUrl: 'https://f1-hungary-translate.avk-ailab.workers.dev'
+   Eén plek voor de Cloudflare Worker URL + push-key. Gelezen door
+   translate.js, sync.js, push.js én sw.js (via importScripts — daarom
+   `self` i.p.v. `window`; in een gewone pagina zijn die identiek). */
+self.F1_CONFIG = {
+  workerUrl: 'https://f1-hungary-translate.avk-ailab.workers.dev',
+  // VAPID public key voor web push (de private helft leeft in de Worker)
+  vapidPublicKey: 'BJTuw03yW4Zl4WxRJnQg4ZMCrhz09CtWoMyMz-EoOA6AWEpLkqDyd0JAI9fd0BlHKCLm4s-1dGvWIrMTsnhe9sY'
 };
