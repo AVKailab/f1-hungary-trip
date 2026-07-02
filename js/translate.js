@@ -519,10 +519,31 @@
     });
   }
 
+  /* Hide the FAB while scrolling down (it must never cover content);
+     bring it back on the first scroll up. Listens on document with capture
+     and reads scrollingElement — window.scrollY is unreliable when html/body
+     carry their own overflow settings. */
+  function initFabAutoHide(fab) {
+    var se = document.scrollingElement || document.documentElement;
+    var lastY = se.scrollTop;
+    document.addEventListener('scroll', function () {
+      var y = se.scrollTop;
+      if (y > lastY + 6 && y > 80) {
+        fab.classList.add('translate-fab--hidden');
+      } else if (y < lastY - 6) {
+        fab.classList.remove('translate-fab--hidden');
+      }
+      lastY = y;
+    }, { passive: true, capture: true });
+  }
+
   /* ---------- Init ---------- */
   function init() {
     var fab = document.getElementById('translate-fab');
-    if (fab) fab.addEventListener('click', openModal);
+    if (fab) {
+      fab.addEventListener('click', openModal);
+      initFabAutoHide(fab);
+    }
 
     var closeBtn = document.getElementById('translate-close');
     if (closeBtn) closeBtn.addEventListener('click', closeModal);

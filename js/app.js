@@ -150,6 +150,29 @@
     }, 1000);
   }
 
+  /* F1 start-light gantry above the countdown. All five glow red; in the
+     final 5 hours before the target they go out one per hour. All out =
+     lights out = race underway (brief green blink). */
+  function renderStartLightsHTML(targetISO) {
+    var ms = new Date(targetISO).getTime() - Date.now();
+    var lightsOn = ms <= 0 ? 0 : Math.min(5, Math.ceil(ms / 3600000));
+    var html = '<div class="start-lights' + (ms <= 0 ? ' lights-out' : '') + '" aria-hidden="true">';
+    for (var i = 1; i <= 5; i++) {
+      html += '<span class="sl-light' + (i <= lightsOn ? ' on' : '') + '"></span>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function updateStartLights(targetISO) {
+    var wrap = document.getElementById('start-lights-wrap');
+    if (!wrap) return;
+    var fresh = renderStartLightsHTML(targetISO);
+    // Only touch the DOM when the light state changes (once per hour) so the
+    // lights-out blink animation isn't restarted every second
+    if (wrap.innerHTML !== fresh) wrap.innerHTML = fresh;
+  }
+
   function updateDashboardCountdowns() {
     if (getActiveTab() !== 'tab-dashboard') return;
 
@@ -162,6 +185,7 @@
       if (mainEl && nextRace && !isRoundDeadlinePassed(nextRound)) {
         mainEl.innerHTML = window.TripCountdown.renderCountdownHTML(nextRace.deadline, 'large');
       }
+      if (nextRace) updateStartLights(nextRace.deadline);
       return;
     }
 
@@ -170,6 +194,7 @@
     if (mainEl) {
       mainEl.innerHTML = window.TripCountdown.renderCountdownHTML(raceSession.date, 'large');
     }
+    updateStartLights(raceSession.date);
 
     // Next up countdown
     var next = window.TripCountdown.getNextSession();
@@ -230,8 +255,9 @@
 
     var html = '';
 
-    // Main countdown
+    // Main countdown with start-light gantry
     html += '<div class="text-center">';
+    html += '<div id="start-lights-wrap">' + renderStartLightsHTML(raceSession.date) + '</div>';
     html += '<div class="countdown-label">Countdown naar de Race</div>';
     html += '<div id="main-countdown">';
     html += window.TripCountdown.renderCountdownHTML(raceSession.date, 'large');
@@ -357,6 +383,7 @@
     // Countdown to the next race (deadline = race start)
     if (!seasonOver) {
       html += '<div class="text-center">';
+      html += '<div id="start-lights-wrap">' + renderStartLightsHTML(nextRace.deadline) + '</div>';
       html += '<div class="countdown-label">' + raceFlag(nextRace.country) + ' Volgende race: ' + escapeHTML(nextRace.name) + '</div>';
       html += '<div id="main-countdown">';
       html += window.TripCountdown.renderCountdownHTML(nextRace.deadline, 'large');

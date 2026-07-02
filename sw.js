@@ -8,7 +8,7 @@
 // Config (Worker URL) is shared with the app via js/config.js
 importScripts('js/config.js');
 
-const CACHE_VERSION = 'f1-hungary-v6';
+const CACHE_VERSION = 'f1-hungary-v7';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 
@@ -168,7 +168,11 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(req).then((cached) => {
       const network = fetch(req).then((res) => {
-        if (res && res.ok && (url.origin === location.origin || url.hostname.includes('unpkg.com'))) {
+        const cacheable = url.origin === location.origin ||
+          url.hostname.includes('unpkg.com') ||
+          url.hostname.includes('fonts.googleapis.com') ||
+          url.hostname.includes('fonts.gstatic.com');
+        if (res && res.ok && cacheable) {
           const clone = res.clone();
           caches.open(STATIC_CACHE).then((c) => c.put(req, clone));
         }
