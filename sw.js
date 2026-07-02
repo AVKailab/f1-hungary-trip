@@ -8,7 +8,7 @@
 // Config (Worker URL) is shared with the app via js/config.js
 importScripts('js/config.js');
 
-const CACHE_VERSION = 'f1-hungary-v7';
+const CACHE_VERSION = 'f1-hungary-v8';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 

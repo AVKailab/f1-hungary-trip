@@ -345,7 +345,7 @@
     html += '<div class="card mt-md">';
     html += '<div class="card-header"><span class="card-title">\uD83C\uDF24\uFE0F Weer Budapest</span></div>';
     html += '<div id="weather-content">';
-    html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">Weer laden...</div>';
+    html += '<div class="skeleton-line" style="width:80%"></div><div class="skeleton-line" style="width:95%"></div><div class="skeleton-line" style="width:60%"></div>';
     html += '</div>';
     html += '</div>';
 
@@ -368,6 +368,7 @@
     loadWeatherCard();
     refreshReminderRow();
     updateSyncStatusEl();
+    maybeCelebrate();
   }
 
   /* Season dashboard: prediction game first, countdown to the next race,
@@ -410,7 +411,7 @@
     html += '<div class="card-header"><span class="card-title">🏆 WK Stand</span>';
     html += '<span style="font-size:11px;color:var(--text-muted)">volledige stand bij Uitslagen</span></div>';
     html += '<div id="season-wk-standings">';
-    html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">Stand laden...</div>';
+    html += '<div class="skeleton-line"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line" style="width:82%"></div><div class="skeleton-line" style="width:88%"></div><div class="skeleton-line" style="width:75%"></div>';
     html += '</div>';
     html += '</div>';
 
@@ -418,6 +419,7 @@
     loadSeasonStandingsCard();
     refreshReminderRow();
     updateSyncStatusEl();
+    maybeCelebrate();
   }
 
   function loadSeasonStandingsCard() {
@@ -755,12 +757,13 @@
 
   /* ---------- Accordion Helper ---------- */
   function renderAccordion(id, title, content, openByDefault) {
+    // accordion-body-inner is required for the smooth 0fr->1fr grid animation
     return '<div class="accordion-section' + (openByDefault ? ' open' : '') + '" id="accordion-' + id + '">' +
       '<button class="accordion-header" onclick="window.App.toggleAccordion(\'' + id + '\')">' +
       '<span>' + title + '</span>' +
       '<span class="accordion-icon">\u25BC</span>' +
       '</button>' +
-      '<div class="accordion-body">' + content + '</div>' +
+      '<div class="accordion-body"><div class="accordion-body-inner">' + content + '</div></div>' +
       '</div>';
   }
 
@@ -1646,6 +1649,62 @@
     return html;
   }
 
+  /* ---------- Celebration (confetti when YOU win a race) ---------- */
+  var CELEBRATED_KEY = 'f1Trip_celebrated';
+
+  function maybeCelebrate() {
+    var owner = getDeviceOwner();
+    if (!owner) return;
+    var resultsByRace = appData.raceResultsByRace || {};
+    var predsByRace = appData.predictionsByRace || {};
+    var seen = {};
+    try { seen = JSON.parse(localStorage.getItem(CELEBRATED_KEY) || '{}'); } catch (e) {}
+    var changed = false;
+
+    Object.keys(resultsByRace).forEach(function (rk) {
+      var res = resultsByRace[rk];
+      if (!(res && res.p1 && res.p2 && res.p3)) return;
+      if (seen[rk]) return;
+      seen[rk] = true; // one shot per race, win or lose
+      changed = true;
+
+      // Best scorer among locked predictions for this race
+      var best = null, bestScore = 0;
+      appData.group.forEach(function (p) {
+        var pred = (predsByRace[rk] || {})[p.name];
+        if (pred && pred.locked && pred.p1 && pred.p2 && pred.p3) {
+          var s = calculateScore(pred, res);
+          if (s > bestScore) { bestScore = s; best = p.name; }
+        }
+      });
+      if (best === owner) fireConfetti();
+    });
+
+    if (changed) {
+      try { localStorage.setItem(CELEBRATED_KEY, JSON.stringify(seen)); } catch (e) {}
+    }
+  }
+
+  function fireConfetti() {
+    var colors = ['#E10600', '#FFD700', '#00D463', '#FFFFFF', '#1A73E8'];
+    var container = document.createElement('div');
+    container.className = 'confetti-container';
+    for (var i = 0; i < 70; i++) {
+      var piece = document.createElement('span');
+      piece.className = 'confetti-piece';
+      piece.style.left = (Math.random() * 100) + 'vw';
+      piece.style.background = colors[i % colors.length];
+      piece.style.animationDuration = (2 + Math.random() * 1.4) + 's';
+      piece.style.animationDelay = (Math.random() * 0.6) + 's';
+      piece.style.transform = 'rotate(' + Math.floor(Math.random() * 360) + 'deg)';
+      container.appendChild(piece);
+    }
+    document.body.appendChild(container);
+    setTimeout(function () {
+      if (container.parentNode) container.parentNode.removeChild(container);
+    }, 4200);
+  }
+
   /* ---------- Reminder row (web push opt-in) ---------- */
   function refreshReminderRow() {
     var el = document.getElementById('reminder-row');
@@ -1696,22 +1755,13 @@
     }
   }
 
-  /* Cumulative season leaderboard: sum each person's score across every round
-     that has a result, counting only locked predictions. */
-  function renderSeasonStandings() {
-    var resultsByRace = appData.raceResultsByRace || {};
-    var predsByRace = appData.predictionsByRace || {};
-    var scoredRounds = Object.keys(resultsByRace).filter(function (rk) {
-      var r = resultsByRace[rk];
-      return r && r.p1 && r.p2 && r.p3;
-    });
-    if (scoredRounds.length === 0) return '';
-
+  /* Totals per person over a given set of scored rounds. */
+  function computeSeasonTotals(rounds, resultsByRace, predsByRace) {
     var totals = {};
     appData.group.forEach(function (p) {
       if (p.name) totals[p.name] = { name: p.name, emoji: p.emoji || '👤', score: 0, races: 0 };
     });
-    scoredRounds.forEach(function (rk) {
+    rounds.forEach(function (rk) {
       var result = resultsByRace[rk];
       var preds = predsByRace[rk] || {};
       Object.keys(totals).forEach(function (name) {
@@ -1722,16 +1772,47 @@
         }
       });
     });
-
     var rows = Object.keys(totals).map(function (n) { return totals[n]; });
     rows.sort(function (a, b) { return b.score - a.score; });
+    return rows;
+  }
+
+  /* Cumulative season leaderboard with position-change arrows: compares the
+     standing with vs without the most recent race. */
+  function renderSeasonStandings() {
+    var resultsByRace = appData.raceResultsByRace || {};
+    var predsByRace = appData.predictionsByRace || {};
+    var scoredRounds = Object.keys(resultsByRace).filter(function (rk) {
+      var r = resultsByRace[rk];
+      return r && r.p1 && r.p2 && r.p3;
+    });
+    if (scoredRounds.length === 0) return '';
+
+    scoredRounds.sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+    var rows = computeSeasonTotals(scoredRounds, resultsByRace, predsByRace);
+
+    // Position before the latest race (only meaningful from race 2 onwards)
+    var prevPos = null;
+    if (scoredRounds.length >= 2) {
+      var prevRows = computeSeasonTotals(scoredRounds.slice(0, -1), resultsByRace, predsByRace);
+      prevPos = {};
+      prevRows.forEach(function (r, i) { prevPos[r.name] = i; });
+    }
 
     var html = '<div class="leaderboard season-standings">';
     html += '<div style="font-size:14px;font-weight:700;margin-bottom:var(--space-sm)">🏆 Seizoenstand <span style="font-size:11px;color:var(--text-muted);font-weight:600">(' + scoredRounds.length + ' race' + (scoredRounds.length === 1 ? '' : 's') + ' gereden)</span></div>';
     var medals = ['🥇', '🥈', '🥉'];
     rows.forEach(function (s, i) {
+      var delta = '';
+      if (prevPos && prevPos[s.name] !== undefined) {
+        var d = prevPos[s.name] - i;
+        if (d > 0) delta = '<span class="pos-delta pos-delta--up">▲' + d + '</span>';
+        else if (d < 0) delta = '<span class="pos-delta pos-delta--down">▼' + (-d) + '</span>';
+        else delta = '<span class="pos-delta pos-delta--same">–</span>';
+      }
       html += '<div class="leaderboard-row">';
       html += '<span class="leaderboard-pos">' + (medals[i] || (i + 1) + '.') + '</span>';
+      html += delta;
       html += '<span style="font-size:16px">' + s.emoji + '</span>';
       html += '<span class="leaderboard-name">' + escapeHTML(s.name);
       html += ' <span style="font-size:10px;color:var(--text-muted)">' + s.races + ' race' + (s.races === 1 ? '' : 's') + '</span>';
@@ -1765,10 +1846,28 @@
 
     scores.sort(function (a, b) { return b.score - a.score; });
 
-    var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
-    scores.forEach(function (s, i) {
+    // Podium for the top 3 (visual order: P2 \u2014 P1 \u2014 P3)
+    var podium = scores.slice(0, 3);
+    if (podium.length === 3) {
+      var order = [podium[1], podium[0], podium[2]];
+      var stepClass = ['podium-step--2', 'podium-step--1', 'podium-step--3'];
+      var stepLabel = ['2', '1', '3'];
+      html += '<div class="podium">';
+      order.forEach(function (s, i) {
+        html += '<div class="podium-slot">';
+        html += '<div class="podium-avatar">' + s.emoji + '</div>';
+        html += '<div class="podium-name">' + escapeHTML(s.name) + '</div>';
+        html += '<div class="podium-points">' + s.score + ' pt' + (s.submitted ? '' : ' \u00B7\u26A0\uFE0F') + '</div>';
+        html += '<div class="podium-step ' + stepClass[i] + '">' + stepLabel[i] + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Everyone below the podium as rows
+    scores.slice(3).forEach(function (s, i) {
       html += '<div class="leaderboard-row">';
-      html += '<span class="leaderboard-pos">' + (medals[i] || (i + 1) + '.') + '</span>';
+      html += '<span class="leaderboard-pos">' + (i + 4) + '.</span>';
       html += '<span style="font-size:16px">' + s.emoji + '</span>';
       html += '<span class="leaderboard-name">' + escapeHTML(s.name);
       if (!s.submitted) html += ' <span style="font-size:10px;color:var(--text-muted)">(geen inzending)</span>';

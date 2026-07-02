@@ -455,18 +455,29 @@ body {
   transform: rotate(180deg);
 }
 
+/* Smooth open/close via the grid 0fr -> 1fr trick (no fixed heights).
+   Browsers without fr-transitions still get instant open/close. */
 .accordion-body {
-  display: none;
+  display: grid;
+  grid-template-rows: 0fr;
   background: var(--bg-secondary);
-  border: 1px solid var(--bg-tertiary);
+  border: 1px solid transparent;
   border-top: none;
   border-bottom-left-radius: var(--radius-md);
   border-bottom-right-radius: var(--radius-md);
-  padding: var(--space-md);
+  padding: 0 var(--space-md);
+  transition: grid-template-rows 0.3s ease, padding 0.3s ease, border-color 0.3s ease;
+}
+
+.accordion-body-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .accordion-section.open .accordion-body {
-  display: block;
+  grid-template-rows: 1fr;
+  border-color: var(--bg-tertiary);
+  padding: var(--space-md);
 }
 
 /* ===== Forms & Inputs ===== */
@@ -2353,6 +2364,137 @@ body {
   color: var(--text-muted);
   border-left: 3px solid var(--text-muted);
   font-style: normal;
+}
+
+/* ===== Podium (top 3 after a race) ===== */
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  margin: var(--space-md) 0;
+}
+
+.podium-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 92px;
+}
+
+.podium-avatar {
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.podium-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podium-points {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.podium-step {
+  width: 100%;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 6px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  animation: podium-rise 0.6s ease both;
+}
+
+.podium-step--1 {
+  height: 84px;
+  background: linear-gradient(180deg, #FFD700 0%, #8A6D00 100%);
+  animation-delay: 0.25s;
+}
+
+.podium-step--2 {
+  height: 58px;
+  background: linear-gradient(180deg, #C0C4CC 0%, #5C6066 100%);
+  animation-delay: 0.1s;
+}
+
+.podium-step--3 {
+  height: 42px;
+  background: linear-gradient(180deg, #CD7F32 0%, #6E4218 100%);
+  animation-delay: 0.4s;
+}
+
+@keyframes podium-rise {
+  from { transform: scaleY(0); transform-origin: bottom; }
+  to { transform: scaleY(1); transform-origin: bottom; }
+}
+
+/* ===== Position change arrows (season standings) ===== */
+.pos-delta {
+  font-size: 10px;
+  font-weight: 800;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-delta--up { color: var(--accent-green); }
+.pos-delta--down { color: var(--f1-red); }
+.pos-delta--same { color: var(--text-muted); }
+
+/* ===== Confetti (you won a race!) ===== */
+.confetti-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2000;
+  overflow: hidden;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -20px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0.95;
+  animation: confetti-fall linear both;
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0.7; }
+}
+
+/* ===== Skeleton loaders ===== */
+.skeleton-line {
+  height: 14px;
+  border-radius: 6px;
+  margin: 10px 0;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, #3A3A4E 45%, var(--bg-tertiary) 65%);
+  background-size: 300% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 /* Leaderboard */

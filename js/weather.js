@@ -50,6 +50,13 @@
       }
     } catch (e) {}
 
+    // Open-Meteo forecasts ~16 days ahead. Further out the API just 400s,
+    // so skip the call entirely and show typical July weather instead.
+    var msToTrip = new Date('2026-07-23T00:00:00').getTime() - Date.now();
+    if (msToTrip > 15 * 86400000) {
+      return callback(null, { days: TYPICAL_JULY, isReal: false });
+    }
+
     var url = API_URL +
       '?latitude=' + BUDAPEST_LAT +
       '&longitude=' + BUDAPEST_LNG +
